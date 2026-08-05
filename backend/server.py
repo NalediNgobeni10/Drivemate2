@@ -443,6 +443,14 @@ async def list_slots(user: User = Depends(get_current_user)):
 async def create_slot(payload: SlotCreate, user: User = Depends(get_current_user)):
     if user.role == "student":
         raise HTTPException(status_code=403, detail="Forbidden")
+    # Prevent double booking: same date+time+vehicle already exists
+    conflict = await db.slots.find_one({
+        "date": payload.date,
+        "time": payload.time,
+        "vehicle_id": payload.vehicle_id,
+    }, {"_id": 0})
+    if conflict:
+        raise HTTPException(status_code=409, detail="A slot already exists for this vehicle at this date & time")
     slot = AvailabilitySlot(**payload.model_dump(), instructor_id=user.user_id)
     doc = slot.model_dump()
     doc["created_at"] = doc["created_at"].isoformat()
@@ -640,6 +648,365 @@ async def instructor_stats(user: User = Depends(get_current_user)):
 @api_router.get("/")
 async def root():
     return {"message": "DriveMate API", "status": "ok"}
+
+
+# ==========================================
+# STUDENT BOOKING (self-service)
+# ==========================================
+def _booking_confirmation_html(student_name, date, time, vehicle, instructor):
+    return f"""
+    <table width="100%" cellpadding="0" cellspacing="0" style="background:#0f172a;padding:40px 0;font-family:Arial,sans-serif;">
+      <tr><td align="center"><table width="560" cellpadding="0" cellspacing="0" style="background:#1e293b;border-radius:16px;overflow:hidden;">
+        <tr><td style="padding:32px;color:#f8fafc;">
+          <div style="font-size:12px;letter-spacing:2px;color:#10b981;text-transform:uppercase;">Booking Confirmed · DriveMate</div>
+          <h1 style="margin:12px 0 4px 0;font-size:28px;">Hi {student_name},</h1>
+          <p style="color:#cbd5e1;font-size:15px;line-height:1.6;margin:0 0 24px 0;">Your lesson is locked in. See you soon!</p>
+          <table width="100%" cellpadding="0" cellspacing="0" style="background:#0f172a;border-radius:12px;padding:20px;">
+            <tr><td style="color:#cbd5e1;font-size:14px;line-height:1.9;">
+              <strong style="color:#10b981;">Date:</strong> {date}<br>
+              <strong style="color:#10b981;">Time:</strong> {time}<br>
+              <strong style="color:#10b981;">Vehicle:</strong> {vehicle}<br>
+              <strong style="color:#10b981;">Instructor:</strong> {instructor}
+            </td></tr>
+          </table>
+          <p style="color:#64748b;font-size:12px;margin:32px 0 0 0;">Drive safe · Learn steady</p>
+        </td></tr>
+      </table></td></tr>
+    </table>
+    """
+
+
+@api_router.get("/my/lessons", response_model=List[AvailabilitySlot])
+async def my_lessons(user: User = Depends(get_current_user)):
+    docs = await db.slots.find(
+        {"$or": [{"student_id": user.user_id}, {"student_email": user.email}]},
+        {"_id": 0}
+    ).sort([("date", 1), ("time", 1)]).to_list(500)
+    return [AvailabilitySlot(**d) for d in docs]
+
+
+@api_router.post("/slots/{slot_id}/book", response_model=AvailabilitySlot)
+async def book_slot(slot_id: str, user: User = Depends(get_current_user)):
+    slot = await db.slots.find_one({"id": slot_id}, {"_id": 0})
+    if not slot:
+        raise HTTPException(status_code=404, detail="Slot not found")
+    if slot.get("status") != "Available":
+        raise HTTPException(status_code=409, detail="Slot is not available")
+    # Prevent double-booking: student already has a Booked slot at this date+time
+    existing = await db.slots.find_one({
+        "date": slot["date"], "time": slot["time"], "status": "Booked",
+        "$or": [{"student_id": user.user_id}, {"student_email": user.email}]
+    }, {"_id": 0})
+    if existing:
+        raise HTTPException(status_code=409, detail="You already have a lesson at this time")
+    await db.slots.update_one({"id": slot_id}, {"$set": {
+        "status": "Booked",
+        "student_id": user.user_id,
+        "student_name": user.name,
+        "student_email": user.email,
+    }})
+    doc = await db.slots.find_one({"id": slot_id}, {"_id": 0})
+    # Send confirmation email (fire and forget)
+    instructor = "your instructor"
+    if doc.get("instructor_id"):
+        u = await db.users.find_one({"user_id": doc["instructor_id"]}, {"_id": 0})
+        if u: instructor = u.get("name", instructor)
+    html = _booking_confirmation_html(user.name, doc["date"], doc["time"], doc["vehicle"], instructor)
+    asyncio.create_task(send_email(user.email, f"Booking confirmed: {doc['date']} at {doc['time']}", html))
+    return AvailabilitySlot(**doc)
+
+
+@api_router.post("/slots/{slot_id}/cancel", response_model=AvailabilitySlot)
+async def cancel_slot(slot_id: str, user: User = Depends(get_current_user)):
+    slot = await db.slots.find_one({"id": slot_id}, {"_id": 0})
+    if not slot:
+        raise HTTPException(status_code=404, detail="Slot not found")
+    # Student can only cancel their own; instructor/admin can cancel any
+    if user.role == "student":
+        if slot.get("student_id") != user.user_id and slot.get("student_email") != user.email:
+            raise HTTPException(status_code=403, detail="Not your booking")
+    await db.slots.update_one({"id": slot_id}, {"$set": {
+        "status": "Available",
+        "student_id": None,
+        "student_name": "",
+        "student_email": "",
+        "reminder_sent_at": None,
+    }})
+    doc = await db.slots.find_one({"id": slot_id}, {"_id": 0})
+    return AvailabilitySlot(**doc)
+
+
+# ==========================================
+# ADMIN — USER MANAGER
+# ==========================================
+def _require_admin(user: User):
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+
+
+class AdminUserUpdate(BaseModel):
+    role: Optional[Literal["admin", "instructor", "student"]] = None
+    title: Optional[str] = None
+    active: Optional[bool] = None
+
+
+@api_router.get("/admin/users")
+async def list_users(user: User = Depends(get_current_user)):
+    _require_admin(user)
+    docs = await db.users.find({}, {"_id": 0}).sort("created_at", -1).to_list(1000)
+    return docs
+
+
+@api_router.patch("/admin/users/{user_id}")
+async def admin_update_user(user_id: str, payload: AdminUserUpdate, user: User = Depends(get_current_user)):
+    _require_admin(user)
+    # Never let admin demote themselves
+    if user_id == user.user_id and payload.role and payload.role != "admin":
+        raise HTTPException(status_code=400, detail="You cannot demote yourself")
+    update = {k: v for k, v in payload.model_dump().items() if v is not None}
+    if update:
+        await db.users.update_one({"user_id": user_id}, {"$set": update})
+    doc = await db.users.find_one({"user_id": user_id}, {"_id": 0})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Not found")
+    return doc
+
+
+@api_router.delete("/admin/users/{user_id}")
+async def admin_delete_user(user_id: str, user: User = Depends(get_current_user)):
+    _require_admin(user)
+    if user_id == user.user_id:
+        raise HTTPException(status_code=400, detail="You cannot delete yourself")
+    await db.users.delete_one({"user_id": user_id})
+    await db.user_sessions.delete_many({"user_id": user_id})
+    return {"ok": True}
+
+
+@api_router.get("/admin/analytics")
+async def admin_analytics(user: User = Depends(get_current_user)):
+    _require_admin(user)
+    total_users = await db.users.count_documents({})
+    students_ct = await db.users.count_documents({"role": "student"})
+    instructors_ct = await db.users.count_documents({"role": "instructor"})
+    admins_ct = await db.users.count_documents({"role": "admin"})
+    total_slots = await db.slots.count_documents({})
+    booked = await db.slots.count_documents({"status": "Booked"})
+    completed = await db.slots.count_documents({"status": "Completed"})
+    available = await db.slots.count_documents({"status": "Available"})
+    paid = await db.payment_transactions.find({"payment_status": "paid"}, {"_id": 0}).to_list(2000)
+    revenue = sum(float(p.get("amount", 0)) for p in paid)
+    return {
+        "users": {"total": total_users, "students": students_ct, "instructors": instructors_ct, "admins": admins_ct},
+        "slots": {"total": total_slots, "booked": booked, "completed": completed, "available": available},
+        "revenue": {"total": round(revenue, 2), "currency": "usd", "transactions": len(paid)},
+        "fleet": {
+            "total": await db.vehicles.count_documents({}),
+            "service_due": await db.vehicles.count_documents({"status": "Service Due"}),
+        },
+    }
+
+
+# ==========================================
+# PAYMENTS (Stripe via emergentintegrations)
+# ==========================================
+try:
+    from emergentintegrations.payments.stripe.checkout import StripeCheckout, CheckoutSessionRequest
+    _STRIPE_AVAILABLE = True
+except Exception as e:
+    logger.warning(f"emergentintegrations Stripe not available: {e}")
+    _STRIPE_AVAILABLE = False
+
+STRIPE_API_KEY = os.environ.get("STRIPE_API_KEY", "sk_test_emergent")
+
+PACKAGES = {
+    "single":   {"name": "Single Lesson",   "amount": 25.0,  "lessons": 1,  "description": "One 1-hour lesson"},
+    "starter":  {"name": "Starter Pack",    "amount": 110.0, "lessons": 5,  "description": "5 lessons ($22 / lesson)"},
+    "pro":      {"name": "Pro Pack",        "amount": 200.0, "lessons": 10, "description": "10 lessons ($20 / lesson)"},
+    "full":     {"name": "Full Course",     "amount": 360.0, "lessons": 20, "description": "20 lessons ($18 / lesson)"},
+}
+
+
+class CheckoutBody(BaseModel):
+    package_id: str
+    origin_url: str
+
+
+@api_router.get("/payments/packages")
+async def list_packages():
+    return {k: {**v, "id": k} for k, v in PACKAGES.items()}
+
+
+@api_router.post("/payments/checkout")
+async def create_checkout(body: CheckoutBody, request: Request, user: User = Depends(get_current_user)):
+    if not _STRIPE_AVAILABLE:
+        raise HTTPException(status_code=503, detail="Payments unavailable")
+    pkg = PACKAGES.get(body.package_id)
+    if not pkg:
+        raise HTTPException(status_code=400, detail="Unknown package")
+    host_url = str(request.base_url)
+    webhook_url = f"{host_url.rstrip('/')}/api/webhook/stripe"
+    checkout = StripeCheckout(api_key=STRIPE_API_KEY, webhook_url=webhook_url)
+    success_url = f"{body.origin_url.rstrip('/')}/payment/success?session_id={{CHECKOUT_SESSION_ID}}"
+    cancel_url = f"{body.origin_url.rstrip('/')}/payment/cancel"
+    req = CheckoutSessionRequest(
+        amount=float(pkg["amount"]), currency="usd",
+        success_url=success_url, cancel_url=cancel_url,
+        metadata={"user_id": user.user_id, "package_id": body.package_id, "lessons": str(pkg["lessons"])},
+    )
+    session = await checkout.create_checkout_session(req)
+    await db.payment_transactions.insert_one({
+        "session_id": session.session_id,
+        "user_id": user.user_id,
+        "user_email": user.email,
+        "package_id": body.package_id,
+        "package_name": pkg["name"],
+        "lessons": pkg["lessons"],
+        "amount": float(pkg["amount"]),
+        "currency": "usd",
+        "status": "initiated",
+        "payment_status": "pending",
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+    })
+    return {"checkout_url": session.url, "session_id": session.session_id}
+
+
+@api_router.get("/payments/status/{session_id}")
+async def payment_status(session_id: str):
+    record = await db.payment_transactions.find_one({"session_id": session_id}, {"_id": 0})
+    if not record:
+        raise HTTPException(status_code=404, detail="Transaction not found")
+    if record.get("payment_status") != "paid" and _STRIPE_AVAILABLE:
+        try:
+            checkout = StripeCheckout(api_key=STRIPE_API_KEY, webhook_url="")
+            status = await checkout.get_checkout_status(session_id)
+            if status.payment_status == "paid" or status.status == "complete":
+                await db.payment_transactions.update_one(
+                    {"session_id": session_id, "payment_status": {"$ne": "paid"}},
+                    {"$set": {
+                        "status": "completed", "payment_status": "paid",
+                        "updated_at": datetime.now(timezone.utc).isoformat(),
+                    }},
+                )
+                record = await db.payment_transactions.find_one({"session_id": session_id}, {"_id": 0})
+        except Exception as e:
+            logger.warning(f"Stripe status check failed: {e}")
+    return {"session_id": record["session_id"], "status": record["status"],
+            "payment_status": record["payment_status"], "amount": record["amount"],
+            "package_name": record.get("package_name")}
+
+
+@api_router.get("/payments/my")
+async def my_payments(user: User = Depends(get_current_user)):
+    docs = await db.payment_transactions.find({"user_id": user.user_id}, {"_id": 0}).sort("created_at", -1).to_list(200)
+    return docs
+
+
+@api_router.get("/admin/payments")
+async def admin_payments(user: User = Depends(get_current_user)):
+    _require_admin(user)
+    docs = await db.payment_transactions.find({}, {"_id": 0}).sort("created_at", -1).to_list(500)
+    return docs
+
+
+@app.post("/api/webhook/stripe")
+async def stripe_webhook(request: Request):
+    if not _STRIPE_AVAILABLE:
+        raise HTTPException(status_code=503, detail="Payments unavailable")
+    try:
+        checkout = StripeCheckout(api_key=STRIPE_API_KEY, webhook_url="")
+        body = await request.body()
+        signature = request.headers.get("Stripe-Signature", "")
+        result = await checkout.handle_webhook(body, signature)
+        if result.event_type in ("checkout.session.completed", "checkout.session.async_payment_succeeded"):
+            await db.payment_transactions.update_one(
+                {"session_id": result.session_id, "payment_status": {"$ne": "paid"}},
+                {"$set": {
+                    "status": "completed", "payment_status": "paid",
+                    "updated_at": datetime.now(timezone.utc).isoformat(),
+                }},
+            )
+        return {"ok": True}
+    except Exception as e:
+        logger.error(f"Stripe webhook error: {e}")
+        raise HTTPException(status_code=400, detail="Invalid webhook")
+
+
+# ==========================================
+# IN-APP MESSAGING
+# ==========================================
+class MessageCreate(BaseModel):
+    to_user_id: str
+    body: str
+
+
+@api_router.get("/messages/threads")
+async def list_threads(user: User = Depends(get_current_user)):
+    # Return distinct users I've messaged with
+    pipeline = [
+        {"$match": {"$or": [{"from_user_id": user.user_id}, {"to_user_id": user.user_id}]}},
+        {"$sort": {"created_at": -1}},
+        {"$group": {
+            "_id": {"$cond": [{"$eq": ["$from_user_id", user.user_id]}, "$to_user_id", "$from_user_id"]},
+            "last_message": {"$first": "$body"},
+            "last_at": {"$first": "$created_at"},
+            "unread": {"$sum": {"$cond": [{"$and": [{"$eq": ["$to_user_id", user.user_id]}, {"$eq": ["$read", False]}]}, 1, 0]}},
+        }},
+    ]
+    threads = await db.messages.aggregate(pipeline).to_list(200)
+    # Enrich with user info
+    result = []
+    for t in threads:
+        peer_id = t["_id"]
+        peer = await db.users.find_one({"user_id": peer_id}, {"_id": 0})
+        if peer:
+            result.append({
+                "peer_id": peer_id, "peer_name": peer.get("name", ""),
+                "peer_picture": peer.get("picture", ""), "peer_role": peer.get("role", ""),
+                "last_message": t["last_message"], "last_at": t["last_at"], "unread": t["unread"],
+            })
+    return result
+
+
+@api_router.get("/messages/with/{peer_id}")
+async def list_messages_with(peer_id: str, user: User = Depends(get_current_user)):
+    docs = await db.messages.find({
+        "$or": [
+            {"from_user_id": user.user_id, "to_user_id": peer_id},
+            {"from_user_id": peer_id, "to_user_id": user.user_id},
+        ]
+    }, {"_id": 0}).sort("created_at", 1).to_list(500)
+    # Mark as read
+    await db.messages.update_many(
+        {"from_user_id": peer_id, "to_user_id": user.user_id, "read": False},
+        {"$set": {"read": True}}
+    )
+    return docs
+
+
+@api_router.post("/messages")
+async def send_message(payload: MessageCreate, user: User = Depends(get_current_user)):
+    msg = {
+        "id": str(uuid.uuid4()),
+        "from_user_id": user.user_id,
+        "from_name": user.name,
+        "to_user_id": payload.to_user_id,
+        "body": payload.body,
+        "read": False,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.messages.insert_one(msg)
+    return {k: v for k, v in msg.items() if k != "_id"}
+
+
+@api_router.get("/users/directory")
+async def users_directory(user: User = Depends(get_current_user)):
+    """List users the current user can message: students see instructors+admins, instructors/admins see all."""
+    if user.role == "student":
+        docs = await db.users.find({"role": {"$in": ["instructor", "admin"]}}, {"_id": 0}).to_list(500)
+    else:
+        docs = await db.users.find({"user_id": {"$ne": user.user_id}}, {"_id": 0}).to_list(500)
+    return [{"user_id": d["user_id"], "name": d["name"], "role": d["role"], "picture": d.get("picture", "")} for d in docs]
 
 
 app.include_router(api_router)

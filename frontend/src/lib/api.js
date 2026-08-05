@@ -29,8 +29,11 @@ export const slotApi = {
   create: (data) => api.post("/slots", data),
   update: (id, data) => api.patch(`/slots/${id}`, data),
   remove: (id) => api.delete(`/slots/${id}`),
+  book: (id) => api.post(`/slots/${id}/book`),
+  cancel: (id) => api.post(`/slots/${id}/cancel`),
   sendReminder: (id) => api.post(`/slots/${id}/send-reminder`),
   runReminders: () => api.post(`/slots/run-reminders`),
+  myLessons: () => api.get(`/my/lessons`),
 };
 
 export const vehicleApi = {
@@ -43,4 +46,26 @@ export const vehicleApi = {
 
 export const statsApi = {
   instructor: () => api.get("/instructor/stats"),
+  adminAnalytics: () => api.get("/admin/analytics"),
+};
+
+export const adminApi = {
+  listUsers: () => api.get("/admin/users"),
+  updateUser: (id, data) => api.patch(`/admin/users/${id}`, data),
+  deleteUser: (id) => api.delete(`/admin/users/${id}`),
+  payments: () => api.get("/admin/payments"),
+};
+
+export const paymentApi = {
+  packages: () => api.get("/payments/packages"),
+  checkout: (data) => api.post("/payments/checkout", data),
+  status: (sid) => api.get(`/payments/status/${sid}`),
+  my: () => api.get("/payments/my"),
+};
+
+export const messageApi = {
+  threads: () => api.get("/messages/threads"),
+  with: (peerId) => api.get(`/messages/with/${peerId}`),
+  send: (data) => api.post("/messages", data),
+  directory: () => api.get("/users/directory"),
 };
