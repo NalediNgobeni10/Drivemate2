@@ -70,3 +70,9 @@ export const messageApi = {
   send: (data) => api.post("/messages", data),
   directory: () => api.get("/users/directory"),
 };
+
+export const quizApi = {
+  questions: (count = 10, code = "both") => api.get(`/quiz/questions?count=${count}&code=${code}`),
+  submit: (data) => api.post("/quiz/attempt", data),
+  myAttempts: () => api.get("/quiz/my-attempts"),
+};

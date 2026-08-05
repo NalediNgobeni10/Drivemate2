@@ -1026,6 +1026,108 @@ async def users_directory(user: User = Depends(get_current_user)):
     return [{"user_id": d["user_id"], "name": d["name"], "role": d["role"], "picture": d.get("picture", "")} for d in docs]
 
 
+# ==========================================
+# K53 LEARNERS TEST PREP QUIZ
+# ==========================================
+import random as _random
+
+K53_QUESTIONS = [
+    # Rules of the road
+    {"id": "q1", "category": "Rules", "code": "both", "question": "When approaching a STOP sign at a controlled intersection you must:",
+     "options": ["Slow down and continue if the road is clear", "Come to a complete stop, then proceed when safe", "Give way only to the right", "Sound your hooter and proceed"], "correct": 1},
+    {"id": "q2", "category": "Rules", "code": "both", "question": "The general speed limit on a public road within an urban area is:",
+     "options": ["100 km/h", "80 km/h", "60 km/h", "40 km/h"], "correct": 2},
+    {"id": "q3", "category": "Rules", "code": "both", "question": "You may only overtake another vehicle when:",
+     "options": ["The road ahead is clear and you can see far enough to complete safely", "The driver in front signals you to pass", "You are in a hurry", "The road markings say you can, no matter the visibility"], "correct": 0},
+    {"id": "q4", "category": "Rules", "code": "both", "question": "At a 4-way stop the vehicle that has right of way is the one that:",
+     "options": ["Has the biggest engine", "Arrived first at the intersection", "Is on the right", "Signals the loudest"], "correct": 1},
+    {"id": "q5", "category": "Rules", "code": "10", "question": "The maximum legal load a Code 10 vehicle may carry is determined by:",
+     "options": ["The driver's licence class", "The vehicle's Gross Vehicle Mass (GVM) on the licence disc", "How full the fuel tank is", "The number of passengers"], "correct": 1},
+    {"id": "q6", "category": "Rules", "code": "both", "question": "The blood alcohol legal limit for a professional driver in South Africa is:",
+     "options": ["0.05 g/100ml", "0.02 g/100ml", "0.08 g/100ml", "There is no limit"], "correct": 1},
+    # Road signs
+    {"id": "q7", "category": "Signs", "code": "both", "question": "A triangular sign with a red border is a:",
+     "options": ["Regulatory sign — you must obey it", "Warning sign — hazard ahead", "Guidance sign — information", "Temporary sign — construction"], "correct": 1},
+    {"id": "q8", "category": "Signs", "code": "both", "question": "A round sign with a red border and a diagonal red line means:",
+     "options": ["Compulsory action ahead", "Prohibition — you may NOT do what is shown", "Warning ahead", "Yield to the vehicle shown"], "correct": 1},
+    {"id": "q9", "category": "Signs", "code": "both", "question": "A blue circular sign shows:",
+     "options": ["A prohibition", "A compulsory instruction (e.g. 'turn left only')", "A warning", "A tourism route"], "correct": 1},
+    {"id": "q10", "category": "Signs", "code": "both", "question": "A solid white line down the centre of the road means:",
+     "options": ["You may cross to overtake if safe", "You may NOT cross the line", "The road is closed", "Give way to oncoming traffic"], "correct": 1},
+    # Controls of the vehicle
+    {"id": "q11", "category": "Controls", "code": "both", "question": "The clutch pedal is used to:",
+     "options": ["Accelerate the vehicle", "Engage and disengage the engine from the gearbox", "Apply the parking brake", "Signal a turn"], "correct": 1},
+    {"id": "q12", "category": "Controls", "code": "both", "question": "Before moving off, you should:",
+     "options": ["Check mirrors, signal, check blind spot, then move off", "Only check the rear-view mirror", "Blow the hooter first", "Rev the engine loudly"], "correct": 0},
+    {"id": "q13", "category": "Controls", "code": "both", "question": "The handbrake / parking brake should be applied:",
+     "options": ["Only when parking on a hill", "Every time the vehicle is stationary and unattended", "Never while the engine is running", "Only in wet weather"], "correct": 1},
+    {"id": "q14", "category": "Controls", "code": "10", "question": "When double-declutching in a heavy vehicle you should:",
+     "options": ["Depress clutch, shift to neutral, release clutch, rev engine, depress clutch, shift into next gear, release", "Simply skip the clutch entirely", "Pull the handbrake before shifting", "Turn off the engine between shifts"], "correct": 0},
+    {"id": "q15", "category": "Controls", "code": "both", "question": "The correct hand position on the steering wheel is:",
+     "options": ["12 and 6 o'clock", "9 and 3 o'clock (or 10 and 2)", "One hand on top, one on your lap", "Both hands at the bottom"], "correct": 1},
+    {"id": "q16", "category": "Rules", "code": "both", "question": "Following distance in ideal conditions should be at least:",
+     "options": ["1 second", "2 seconds", "5 metres", "One car length"], "correct": 1},
+    {"id": "q17", "category": "Signs", "code": "both", "question": "A yellow diamond sign indicates:",
+     "options": ["A temporary warning (roadworks, detour)", "A permanent regulation", "A tourist destination", "A parking area"], "correct": 0},
+    {"id": "q18", "category": "Rules", "code": "both", "question": "You must dip your headlights when an oncoming vehicle is within:",
+     "options": ["50 metres", "200 metres", "1 kilometre", "You never need to dip them"], "correct": 1},
+]
+
+
+class QuizAttemptCreate(BaseModel):
+    code: Literal["8", "10", "both"] = "both"
+    answers: dict  # {question_id: selected_index}
+
+
+@api_router.get("/quiz/questions")
+async def get_quiz_questions(count: int = 10, code: str = "both", user: User = Depends(get_current_user)):
+    pool = [q for q in K53_QUESTIONS if q["code"] in (code, "both") or code == "both"]
+    _random.shuffle(pool)
+    picked = pool[:max(1, min(count, len(pool)))]
+    # Never leak the correct index to the student
+    return [{"id": q["id"], "category": q["category"], "code": q["code"], "question": q["question"], "options": q["options"]} for q in picked]
+
+
+@api_router.post("/quiz/attempt")
+async def submit_quiz(payload: QuizAttemptCreate, user: User = Depends(get_current_user)):
+    by_id = {q["id"]: q for q in K53_QUESTIONS}
+    total = len(payload.answers)
+    correct = 0
+    breakdown = []
+    for qid, chosen in payload.answers.items():
+        q = by_id.get(qid)
+        if not q:
+            continue
+        is_right = int(chosen) == q["correct"]
+        if is_right:
+            correct += 1
+        breakdown.append({
+            "question_id": qid, "question": q["question"], "chosen": int(chosen),
+            "correct": q["correct"], "is_right": is_right,
+            "options": q["options"], "category": q["category"],
+        })
+    attempt = {
+        "id": str(uuid.uuid4()),
+        "user_id": user.user_id,
+        "user_email": user.email,
+        "code": payload.code,
+        "score": correct,
+        "total": total,
+        "percent": round(100 * correct / total, 1) if total else 0.0,
+        "passed": (correct / total) >= 0.75 if total else False,
+        "breakdown": breakdown,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.quiz_attempts.insert_one(attempt)
+    return {k: v for k, v in attempt.items() if k != "_id"}
+
+
+@api_router.get("/quiz/my-attempts")
+async def my_attempts(user: User = Depends(get_current_user)):
+    docs = await db.quiz_attempts.find({"user_id": user.user_id}, {"_id": 0}).sort("created_at", -1).to_list(50)
+    return docs
+
+
 app.include_router(api_router)
 
 app.add_middleware(

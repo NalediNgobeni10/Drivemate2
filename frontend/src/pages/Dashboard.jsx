@@ -12,6 +12,7 @@ import Payments from "@/components/Payments";
 import UserManager from "@/components/UserManager";
 import Analytics from "@/components/Analytics";
 import Messages from "@/components/Messages";
+import Quiz from "@/components/Quiz";
 import { useAuth } from "@/context/AuthContext";
 import { GaugeCircle } from "lucide-react";
 
@@ -73,6 +74,7 @@ export default function Dashboard() {
             {[
               role === "student" && { id: "book", label: "Book" },
               role === "student" && { id: "my-lessons", label: "My Lessons" },
+              { id: "quiz", label: "K53 Quiz" },
               (role === "instructor" || role === "admin") && { id: "roster", label: "Roster" },
               (role === "instructor" || role === "admin") && { id: "scheduler", label: "Slots" },
               (role === "admin" || role === "student") && { id: "payments", label: "Payments" },
@@ -97,6 +99,7 @@ export default function Dashboard() {
           {tab === "scheduler" && <SlotScheduler />}
           {tab === "book" && <BookLesson />}
           {tab === "my-lessons" && <MyLessons />}
+          {tab === "quiz" && <Quiz />}
           {tab === "payments" && <Payments />}
           {tab === "messages" && <Messages />}
           {tab === "fleet" && <FleetManager />}

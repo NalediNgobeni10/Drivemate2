@@ -1,10 +1,11 @@
-import { Users, CalendarDays, UserCircle2, Truck, ShieldCheck, LineChart, MessageSquare, CreditCard, BookOpen } from "lucide-react";
+import { Users, CalendarDays, UserCircle2, Truck, ShieldCheck, LineChart, MessageSquare, CreditCard, BookOpen, GraduationCap } from "lucide-react";
 
 const ALL_ITEMS = [
   { id: "roster", label: "Instructor Roster", icon: Users, roles: ["admin", "instructor"] },
   { id: "scheduler", label: "Calendar Slots", icon: CalendarDays, roles: ["admin", "instructor"] },
   { id: "book", label: "Book Lesson", icon: BookOpen, roles: ["student"] },
   { id: "my-lessons", label: "My Lessons", icon: CalendarDays, roles: ["student"] },
+  { id: "quiz", label: "K53 Practice", icon: GraduationCap, roles: ["admin", "instructor", "student"] },
   { id: "payments", label: "Payments", icon: CreditCard, roles: ["admin", "student"] },
   { id: "messages", label: "Messages", icon: MessageSquare, roles: ["admin", "instructor", "student"] },
   { id: "fleet", label: "Fleet Manager", icon: Truck, roles: ["admin", "instructor"] },
