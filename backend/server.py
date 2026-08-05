@@ -798,12 +798,26 @@ async def admin_analytics(user: User = Depends(get_current_user)):
     return {
         "users": {"total": total_users, "students": students_ct, "instructors": instructors_ct, "admins": admins_ct},
         "slots": {"total": total_slots, "booked": booked, "completed": completed, "available": available},
-        "revenue": {"total": round(revenue, 2), "currency": "usd", "transactions": len(paid)},
+        "revenue": {"total": round(revenue, 2), "currency": "zar", "transactions": len(paid)},
         "fleet": {
             "total": await db.vehicles.count_documents({}),
             "service_due": await db.vehicles.count_documents({"status": "Service Due"}),
         },
     }
+
+
+@api_router.post("/admin/reset-demo")
+async def reset_demo(user: User = Depends(get_current_user)):
+    """Wipe demo data (students, slots, vehicles, feedback, payments, messages) and reseed. Users are preserved."""
+    _require_admin(user)
+    await db.students.delete_many({})
+    await db.slots.delete_many({})
+    await db.vehicles.delete_many({})
+    await db.feedback.delete_many({})
+    await db.payment_transactions.delete_many({})
+    await db.messages.delete_many({})
+    await _seed_all()  # noqa: F821 — defined further down; resolved at request time
+    return {"ok": True, "message": "Demo data reset. Fresh sample loaded."}
 
 
 # ==========================================
@@ -819,11 +833,14 @@ except Exception as e:
 STRIPE_API_KEY = os.environ.get("STRIPE_API_KEY", "sk_test_emergent")
 
 PACKAGES = {
-    "single":   {"name": "Single Lesson",   "amount": 25.0,  "lessons": 1,  "description": "One 1-hour lesson"},
-    "starter":  {"name": "Starter Pack",    "amount": 110.0, "lessons": 5,  "description": "5 lessons ($22 / lesson)"},
-    "pro":      {"name": "Pro Pack",        "amount": 200.0, "lessons": 10, "description": "10 lessons ($20 / lesson)"},
-    "full":     {"name": "Full Course",     "amount": 360.0, "lessons": 20, "description": "20 lessons ($18 / lesson)"},
+    "single":   {"name": "Single Lesson",   "amount": 500.0,  "lessons": 1,  "description": "One 1-hour lesson"},
+    "starter":  {"name": "Starter Pack",    "amount": 2250.0, "lessons": 5,  "description": "5 lessons (R450 / lesson)"},
+    "pro":      {"name": "Pro Pack",        "amount": 4000.0, "lessons": 10, "description": "10 lessons (R400 / lesson)"},
+    "full":     {"name": "Full Course",     "amount": 7500.0, "lessons": 20, "description": "20 lessons (R375 / lesson)"},
 }
+
+
+CURRENCY = "zar"
 
 
 class CheckoutBody(BaseModel):
@@ -833,7 +850,7 @@ class CheckoutBody(BaseModel):
 
 @api_router.get("/payments/packages")
 async def list_packages():
-    return {k: {**v, "id": k} for k, v in PACKAGES.items()}
+    return {k: {**v, "id": k, "currency": CURRENCY} for k, v in PACKAGES.items()}
 
 
 @api_router.post("/payments/checkout")
@@ -849,7 +866,7 @@ async def create_checkout(body: CheckoutBody, request: Request, user: User = Dep
     success_url = f"{body.origin_url.rstrip('/')}/payment/success?session_id={{CHECKOUT_SESSION_ID}}"
     cancel_url = f"{body.origin_url.rstrip('/')}/payment/cancel"
     req = CheckoutSessionRequest(
-        amount=float(pkg["amount"]), currency="usd",
+        amount=float(pkg["amount"]), currency=CURRENCY,
         success_url=success_url, cancel_url=cancel_url,
         metadata={"user_id": user.user_id, "package_id": body.package_id, "lessons": str(pkg["lessons"])},
     )
@@ -862,7 +879,7 @@ async def create_checkout(body: CheckoutBody, request: Request, user: User = Dep
         "package_name": pkg["name"],
         "lessons": pkg["lessons"],
         "amount": float(pkg["amount"]),
-        "currency": "usd",
+        "currency": CURRENCY,
         "status": "initiated",
         "payment_status": "pending",
         "created_at": datetime.now(timezone.utc).isoformat(),
@@ -1023,16 +1040,18 @@ app.add_middleware(
 # ---------- Seed ----------
 SEED_VEHICLES = [
     {"name": "Fleet-01", "make_model": "Toyota Corolla", "license_plate": "CA 123-456", "license_class": "Code 8", "total_hours": 320, "hours_since_service": 62, "service_interval_hours": 100, "color": "Silver"},
-    {"name": "Fleet-02", "make_model": "VW Polo", "license_plate": "CA 345-678", "license_class": "Code 8", "total_hours": 180, "hours_since_service": 22, "service_interval_hours": 100, "color": "White"},
-    {"name": "Fleet-03", "make_model": "Isuzu Truck", "license_plate": "CA 789-012", "license_class": "Code 10", "total_hours": 640, "hours_since_service": 108, "service_interval_hours": 100, "color": "Blue", "status": "Service Due"},
+    {"name": "Fleet-02", "make_model": "VW Polo Vivo", "license_plate": "CA 345-678", "license_class": "Code 8", "total_hours": 180, "hours_since_service": 22, "service_interval_hours": 100, "color": "White"},
+    {"name": "Fleet-03", "make_model": "Isuzu N-Series Truck", "license_plate": "CA 789-012", "license_class": "Code 10", "total_hours": 640, "hours_since_service": 108, "service_interval_hours": 100, "color": "Blue", "status": "Service Due"},
 ]
 
 SEED_STUDENTS = [
-    {"student_name": "Thabo Mokoena", "email": "thabo@student.example.com", "license_track": "Code 8", "progress": 75, "rating": 4.6, "lessons_completed": 15, "total_lessons": 20},
-    {"student_name": "Naledi Dlamini", "email": "naledi@student.example.com", "license_track": "Code 10", "progress": 40, "rating": 4.2, "lessons_completed": 8, "total_lessons": 20},
-    {"student_name": "Sipho Ndaba", "email": "sipho@student.example.com", "license_track": "Code 8", "progress": 95, "rating": 4.9, "lessons_completed": 19, "total_lessons": 20},
-    {"student_name": "Amahle Zulu", "email": "amahle@student.example.com", "license_track": "Code 10", "progress": 60, "rating": 4.5, "lessons_completed": 12, "total_lessons": 20},
-    {"student_name": "Kagiso Molefe", "email": "kagiso@student.example.com", "license_track": "Code 8", "progress": 25, "rating": 4.0, "lessons_completed": 5, "total_lessons": 20},
+    {"student_name": "Thabo Mokoena", "email": "thabo.mokoena@example.co.za", "license_track": "Code 8", "progress": 75, "rating": 4.6, "lessons_completed": 15, "total_lessons": 20},
+    {"student_name": "Naledi Dlamini", "email": "naledi.dlamini@example.co.za", "license_track": "Code 10", "progress": 40, "rating": 4.2, "lessons_completed": 8, "total_lessons": 20},
+    {"student_name": "Sipho Ndaba", "email": "sipho.ndaba@example.co.za", "license_track": "Code 8", "progress": 95, "rating": 4.9, "lessons_completed": 19, "total_lessons": 20},
+    {"student_name": "Amahle Zulu", "email": "amahle.zulu@example.co.za", "license_track": "Code 10", "progress": 60, "rating": 4.5, "lessons_completed": 12, "total_lessons": 20},
+    {"student_name": "Kagiso Molefe", "email": "kagiso.molefe@example.co.za", "license_track": "Code 8", "progress": 25, "rating": 4.0, "lessons_completed": 5, "total_lessons": 20},
+    {"student_name": "Lerato Ndlovu", "email": "lerato.ndlovu@example.co.za", "license_track": "Code 8", "progress": 55, "rating": 4.3, "lessons_completed": 11, "total_lessons": 20},
+    {"student_name": "Bongani Khumalo", "email": "bongani.khumalo@example.co.za", "license_track": "Code 10", "progress": 30, "rating": 4.1, "lessons_completed": 6, "total_lessons": 20},
 ]
 
 
@@ -1050,22 +1069,8 @@ async def _reminder_loop():
             logger.error(f"Reminder loop error: {e}")
 
 
-@app.on_event("startup")
-async def seed_data():
-    if not await db.users.find_one({"email": ADMIN_EMAIL}):
-        await db.users.insert_one({
-            "user_id": f"user_{uuid.uuid4().hex[:12]}",
-            "email": ADMIN_EMAIL,
-            "name": "Lesego Lebese",
-            "picture": "",
-            "role": "admin",
-            "title": "Technical Lead",
-            "phone": "+27 71 000 0000",
-            "bio": "Senior driving instructor and technical lead at DriveMate. Passionate about safe driving education.",
-            "created_at": datetime.now(timezone.utc).isoformat(),
-        })
-        logger.info("Seeded admin user")
-
+async def _seed_all():
+    """Idempotent seed helper — reused by startup and /admin/reset-demo."""
     if await db.vehicles.count_documents({}) == 0:
         for v in SEED_VEHICLES:
             doc = Vehicle(**v).model_dump()
@@ -1086,16 +1091,37 @@ async def seed_data():
         today = datetime.now(timezone.utc).date()
         seed_slots = [
             {"date": (today + timedelta(days=1)).isoformat(), "time": "08:00", "vehicle": f"{v_by_class['Code 8']['make_model']} - {v_by_class['Code 8']['license_plate']}", "vehicle_id": v_by_class['Code 8']['id'], "status": "Available"},
-            {"date": (today + timedelta(days=1)).isoformat(), "time": "10:00", "vehicle": f"{v_by_class['Code 8']['make_model']} - {v_by_class['Code 8']['license_plate']}", "vehicle_id": v_by_class['Code 8']['id'], "status": "Booked", "student_name": "Thabo Mokoena", "student_email": "thabo@student.example.com"},
+            {"date": (today + timedelta(days=1)).isoformat(), "time": "10:00", "vehicle": f"{v_by_class['Code 8']['make_model']} - {v_by_class['Code 8']['license_plate']}", "vehicle_id": v_by_class['Code 8']['id'], "status": "Booked", "student_name": "Thabo Mokoena", "student_email": "thabo.mokoena@example.co.za"},
             {"date": (today + timedelta(days=2)).isoformat(), "time": "09:00", "vehicle": f"{v_by_class['Code 10']['make_model']} - {v_by_class['Code 10']['license_plate']}", "vehicle_id": v_by_class['Code 10']['id'], "status": "Available"},
-            {"date": (today + timedelta(days=2)).isoformat(), "time": "14:00", "vehicle": f"{vehicles[1]['make_model']} - {vehicles[1]['license_plate']}", "vehicle_id": vehicles[1]['id'], "status": "Completed", "student_name": "Sipho Ndaba", "student_email": "sipho@student.example.com"},
-            {"date": (today + timedelta(days=3)).isoformat(), "time": "11:00", "vehicle": f"{v_by_class['Code 10']['make_model']} - {v_by_class['Code 10']['license_plate']}", "vehicle_id": v_by_class['Code 10']['id'], "status": "Booked", "student_name": "Naledi Dlamini", "student_email": "naledi@student.example.com"},
+            {"date": (today + timedelta(days=2)).isoformat(), "time": "14:00", "vehicle": f"{vehicles[1]['make_model']} - {vehicles[1]['license_plate']}", "vehicle_id": vehicles[1]['id'], "status": "Completed", "student_name": "Sipho Ndaba", "student_email": "sipho.ndaba@example.co.za"},
+            {"date": (today + timedelta(days=3)).isoformat(), "time": "11:00", "vehicle": f"{v_by_class['Code 10']['make_model']} - {v_by_class['Code 10']['license_plate']}", "vehicle_id": v_by_class['Code 10']['id'], "status": "Booked", "student_name": "Naledi Dlamini", "student_email": "naledi.dlamini@example.co.za"},
+            {"date": (today + timedelta(days=3)).isoformat(), "time": "15:00", "vehicle": f"{v_by_class['Code 8']['make_model']} - {v_by_class['Code 8']['license_plate']}", "vehicle_id": v_by_class['Code 8']['id'], "status": "Available"},
+            {"date": (today + timedelta(days=4)).isoformat(), "time": "10:00", "vehicle": f"{vehicles[1]['make_model']} - {vehicles[1]['license_plate']}", "vehicle_id": vehicles[1]['id'], "status": "Available"},
         ]
         for s in seed_slots:
             doc = AvailabilitySlot(**s).model_dump()
             doc["created_at"] = doc["created_at"].isoformat()
             await db.slots.insert_one(doc)
         logger.info("Seeded slots")
+
+
+@app.on_event("startup")
+async def seed_data():
+    if not await db.users.find_one({"email": ADMIN_EMAIL}):
+        await db.users.insert_one({
+            "user_id": f"user_{uuid.uuid4().hex[:12]}",
+            "email": ADMIN_EMAIL,
+            "name": "Lesego Lebese",
+            "picture": "",
+            "role": "admin",
+            "title": "Technical Lead",
+            "phone": "+27 71 000 0000",
+            "bio": "Senior driving instructor and technical lead at DriveMate. Passionate about safe driving education.",
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        })
+        logger.info("Seeded admin user")
+
+    await _seed_all()
 
     # Start reminder loop
     app.state.reminder_task = asyncio.create_task(_reminder_loop())

@@ -54,6 +54,7 @@ export const adminApi = {
   updateUser: (id, data) => api.patch(`/admin/users/${id}`, data),
   deleteUser: (id) => api.delete(`/admin/users/${id}`),
   payments: () => api.get("/admin/payments"),
+  resetDemo: () => api.post("/admin/reset-demo"),
 };
 
 export const paymentApi = {

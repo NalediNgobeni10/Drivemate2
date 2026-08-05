@@ -1,5 +1,6 @@
 import { Bell, Search, LogOut, Car } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
+import PresenterGuide from "@/components/PresenterGuide";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -51,6 +52,7 @@ export default function AppHeader({ onSearch }) {
         </div>
 
         <div className="flex items-center gap-3">
+          {user?.role === "admin" && <PresenterGuide />}
           <button
             data-testid="header-notifications-btn"
             className="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center hover:border-[#10b981]/40 transition-colors relative"

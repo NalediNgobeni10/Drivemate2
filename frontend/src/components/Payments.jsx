@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { paymentApi } from "@/lib/api";
+import { formatZAR } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { CreditCard, Package, Check, Loader2, Clock } from "lucide-react";
 import { toast } from "sonner";
@@ -67,8 +68,8 @@ export default function Payments() {
                   <div className="font-heading font-bold text-xl">{p.name}</div>
                   <div className="text-slate-400 text-sm mt-1 mb-4">{p.description}</div>
                   <div className="flex items-baseline gap-1.5 mb-5">
-                    <span className="font-heading text-4xl font-bold text-[#10b981]">${p.amount}</span>
-                    <span className="text-slate-400 text-xs font-mono-tech uppercase">USD</span>
+                    <span className="font-heading text-4xl font-bold text-[#10b981]">{formatZAR(p.amount)}</span>
+                    <span className="text-slate-400 text-xs font-mono-tech uppercase">ZAR</span>
                   </div>
                   <div className="space-y-2 mb-6 text-sm text-slate-300">
                     <div className="flex items-center gap-2"><Check className="w-4 h-4 text-[#10b981]" strokeWidth={2} />{p.lessons} lesson{p.lessons > 1 ? "s" : ""}</div>
@@ -108,7 +109,7 @@ export default function Payments() {
                   {history.map((t, i) => (
                     <tr key={t.session_id} data-testid={`payment-row-${i}`} className="border-b border-white/5">
                       <td className="px-6 py-4 text-slate-100">{t.package_name}</td>
-                      <td className="px-6 py-4 font-mono-tech text-slate-100">${t.amount}</td>
+                      <td className="px-6 py-4 font-mono-tech text-slate-100">{formatZAR(t.amount)}</td>
                       <td className="px-6 py-4">
                         <span className={`inline-flex items-center px-2.5 py-1 rounded-full border text-[10px] font-mono-tech uppercase tracking-wider ${
                           t.payment_status === "paid" ? "bg-[#10b981]/20 text-[#10b981] border-[#10b981]/40" :
