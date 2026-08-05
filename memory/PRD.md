@@ -30,10 +30,15 @@ Build a full-stack web application called **DriveMate**. Multi-role driving scho
 - Dark glassmorphism theme, Outfit/Plus Jakarta Sans/JetBrains Mono fonts, grain overlay, hover-lift animations
 - Header with user avatar dropdown + Footer with CPUT branding
 
+## Iteration 2 (2026-02-05)
+- Removed all CPUT branding (client-agnostic now) — header, footer, sidebar, login
+- **Week Calendar View** — 7-day × hourly grid inside Slot Scheduler with prev/next navigation; click empty cell to add slot
+- **Fleet Manager** — new module with Vehicle model, service tracking (`hours_since_service` vs `service_interval_hours`), auto-flag "Service Due", "Mark Serviced" resets counter, per-vehicle license class (Code 8/10). Slots now reference `vehicle_id`. Completed slots auto-increment vehicle hours.
+- **Email Reminders (Resend via Emergent proxy)** — `POST /api/slots/{id}/send-reminder` manual send + `POST /api/slots/run-reminders` bulk 24h window job + background asyncio loop every 30 min. HTML email template with DriveMate brand.
+- Seed vehicles (3) refreshed; slot seed now uses relative dates (today+1/+2/+3) and links to `vehicle_id`.
+
 ## Backlog / Next
 - **P1**: Student self-service booking (book Available slot)
-- **P1**: Real-time slot conflicts + calendar week view
 - **P2**: Bulk CSV import of students
-- **P2**: Email reminders (via Resend) 24h before slot
-- **P2**: Instructor certifications/badges
-- **P3**: Analytics dashboard (weekly hours, pass rate)
+- **P2**: Multi-instructor scheduling with per-instructor calendar
+- **P3**: Analytics dashboard (weekly hours, pass rate, revenue)

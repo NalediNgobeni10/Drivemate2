@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { slotApi, vehicleApi } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -105,7 +105,9 @@ export default function SlotScheduler() {
       toast.success(`Reminder sent to ${r.data.sent_to}`);
       await load();
     } catch (e) {
-      toast.error(e?.response?.data?.detail || "Failed to send reminder");
+      const detail = e?.response?.data?.detail;
+      const msg = typeof detail === "string" && detail.length < 200 ? detail : "Reminder could not be sent right now";
+      toast.error(msg);
     }
   };
 
@@ -301,8 +303,8 @@ export default function SlotScheduler() {
                 </div>
               ))}
               {HOURS.map((h) => (
-                <>
-                  <div key={`h-${h}`} className="text-right pr-2 py-2 font-mono-tech text-xs text-slate-400">{h}</div>
+                <Fragment key={`row-${h}`}>
+                  <div className="text-right pr-2 py-2 font-mono-tech text-xs text-slate-400">{h}</div>
                   {weekDays.map((d, di) => {
                     const key = `${isoDate(d)}|${h}`;
                     const slot = slotsByCell[key];
@@ -342,7 +344,7 @@ export default function SlotScheduler() {
                       </div>
                     );
                   })}
-                </>
+                </Fragment>
               ))}
             </div>
           </div>
