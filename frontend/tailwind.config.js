@@ -13,6 +13,23 @@ module.exports = {
         sm: 'calc(var(--radius) - 4px)'
       },
       colors: {
+        // DriveMate Dark Theme Colors
+        navy: {
+          900: '#0f172a',
+          800: '#1e293b',
+          700: '#334155',
+        },
+        emerald: {
+          500: '#10b981',
+          600: '#059669',
+          400: '#34d399',
+        },
+        drivemate: {
+          green: '#1D6A4A',
+          dark: '#0f172a',
+          card: '#1E293B',
+          highlight: '#10b981',
+        },
         background: 'hsl(var(--background))',
         foreground: 'hsl(var(--foreground))',
         card: {
