@@ -37,8 +37,19 @@ Build a full-stack web application called **DriveMate**. Multi-role driving scho
 - **Email Reminders (Resend via Emergent proxy)** — `POST /api/slots/{id}/send-reminder` manual send + `POST /api/slots/run-reminders` bulk 24h window job + background asyncio loop every 30 min. HTML email template with DriveMate brand.
 - Seed vehicles (3) refreshed; slot seed now uses relative dates (today+1/+2/+3) and links to `vehicle_id`.
 
+## Iteration 3 (2026-02-05)
+- **Student self-booking flow**: `POST /api/slots/{id}/book` + `/cancel`; sends booking confirmation email; per-user double-booking prevention on date+time
+- **Double-booking prevention at slot creation**: (date, time, vehicle_id) uniqueness → 409
+- **My Lessons page** (upcoming + history with cancel)
+- **Admin User Manager**: list/promote/demote/delete users; self-safety guards (400 on demote/delete self)
+- **Admin Analytics dashboard**: revenue, users, bookings, fleet stats + recent transactions table
+- **Payments (Stripe via emergentintegrations)**: 4 packages (single $25, starter $110, pro $200, full $360), checkout → real Stripe URL, pending record, status polling with self-heal, `/payment/success` + `/payment/cancel` pages
+- **In-app messaging**: threads, directory (role-aware), send, mark-as-read, 5-second polling
+- Role-based routing: Student default=book, Instructor default=roster, Admin default=analytics
+- Testing agent: 22/22 backend + all frontend flows verified, including live Stripe redirect to Sandbox3
+
 ## Backlog / Next
-- **P1**: Student self-service booking (book Available slot)
-- **P2**: Bulk CSV import of students
-- **P2**: Multi-instructor scheduling with per-instructor calendar
-- **P3**: Analytics dashboard (weekly hours, pass rate, revenue)
+- **P2**: Return 404 (not silent 200) from DELETE /api/admin/users when user missing
+- **P2**: Instructor availability = booking window (block booking too close to slot time)
+- **P3**: SMS reminders (Twilio) alongside email
+- **P3**: Package credits tracked per student (auto-decrement on Completed lesson)
