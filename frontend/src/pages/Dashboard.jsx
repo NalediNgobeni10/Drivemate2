@@ -4,6 +4,7 @@ import AppFooter from "@/components/AppFooter";
 import Sidebar from "@/components/Sidebar";
 import InstructorRoster from "@/components/InstructorRoster";
 import SlotScheduler from "@/components/SlotScheduler";
+import FleetManager from "@/components/FleetManager";
 import InstructorProfile from "@/components/InstructorProfile";
 import { useAuth } from "@/context/AuthContext";
 import { GaugeCircle } from "lucide-react";
@@ -22,17 +23,16 @@ export default function Dashboard() {
         <Sidebar active={tab} onChange={setTab} />
 
         <main className="flex-1 min-w-0 px-6 lg:px-10 py-10 relative z-10">
-          {/* Welcome banner */}
           <div className="mb-10 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
             <div>
               <div className="font-mono-tech text-[10px] text-[#10b981] uppercase tracking-widest mb-2">
-                {user?.role === "admin" ? "Faculty Console" : "Instructor Console"}
+                {user?.role === "admin" ? "Admin Console" : "Instructor Console"}
               </div>
               <h1 className="text-4xl sm:text-5xl font-heading font-bold leading-tight">
                 Hello, <span className="text-[#10b981]">{(user?.name || "Instructor").split(" ")[0]}</span>.
               </h1>
               <p className="text-slate-400 text-sm mt-2 max-w-lg">
-                Manage your roster, availability slots, and profile all in one place.
+                Manage your roster, availability, fleet, and profile — all in one place.
               </p>
             </div>
             <div className="glass-card px-5 py-4 flex items-center gap-4 hover-lift">
@@ -46,11 +46,11 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* Mobile tab switcher */}
           <div className="lg:hidden mb-6 flex gap-2 overflow-x-auto">
             {[
               { id: "roster", label: "Roster" },
               { id: "scheduler", label: "Slots" },
+              { id: "fleet", label: "Fleet" },
               { id: "profile", label: "Profile" },
             ].map((t) => (
               <button
@@ -68,6 +68,7 @@ export default function Dashboard() {
 
           {tab === "roster" && <InstructorRoster searchQuery={globalSearch} />}
           {tab === "scheduler" && <SlotScheduler />}
+          {tab === "fleet" && <FleetManager />}
           {tab === "profile" && <InstructorProfile />}
         </main>
       </div>

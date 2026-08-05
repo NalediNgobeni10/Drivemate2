@@ -22,7 +22,7 @@ export default function Login() {
           </div>
           <div>
             <div className="font-heading font-bold text-xl tracking-tight">DriveMate</div>
-            <div className="font-mono-tech text-[10px] text-slate-400 uppercase">CPUT Faculty · Driving School</div>
+            <div className="font-mono-tech text-[10px] text-slate-400 uppercase">Driving School · Management Suite</div>
           </div>
         </div>
 
@@ -63,7 +63,7 @@ export default function Login() {
         </div>
 
         <div className="text-xs text-slate-500 font-mono-tech uppercase tracking-wider">
-          © 2026 CPUT Faculty · Built for Instructors
+          © 2026 DriveMate · Built for Instructors
         </div>
       </div>
 

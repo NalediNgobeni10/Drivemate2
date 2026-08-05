@@ -29,6 +29,16 @@ export const slotApi = {
   create: (data) => api.post("/slots", data),
   update: (id, data) => api.patch(`/slots/${id}`, data),
   remove: (id) => api.delete(`/slots/${id}`),
+  sendReminder: (id) => api.post(`/slots/${id}/send-reminder`),
+  runReminders: () => api.post(`/slots/run-reminders`),
+};
+
+export const vehicleApi = {
+  list: () => api.get("/vehicles"),
+  create: (data) => api.post("/vehicles", data),
+  update: (id, data) => api.patch(`/vehicles/${id}`, data),
+  service: (id) => api.post(`/vehicles/${id}/service`),
+  remove: (id) => api.delete(`/vehicles/${id}`),
 };
 
 export const statsApi = {

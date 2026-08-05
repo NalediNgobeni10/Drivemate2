@@ -33,7 +33,7 @@ export default function AppHeader({ onSearch }) {
           <div className="hidden sm:block">
             <div className="font-heading font-bold text-base leading-tight">DriveMate</div>
             <div className="font-mono-tech text-[9px] text-slate-400 uppercase tracking-widest">
-              CPUT · Instructor Portal
+              Instructor Portal
             </div>
           </div>
         </div>

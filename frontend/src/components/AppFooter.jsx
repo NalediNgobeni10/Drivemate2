@@ -15,7 +15,7 @@ export default function AppFooter() {
             <div>
               <div className="font-heading font-bold text-lg">DriveMate</div>
               <div className="font-mono-tech text-[10px] text-slate-400 uppercase tracking-widest">
-                Instructor Management Suite
+                Driving School Management Suite
               </div>
             </div>
           </div>
@@ -26,25 +26,25 @@ export default function AppFooter() {
 
         <div>
           <div className="font-mono-tech text-[10px] text-[#10b981] uppercase tracking-widest mb-3">
-            Faculty
+            Contact
           </div>
-          <div className="font-heading font-semibold text-base mb-1">CPUT Faculty</div>
-          <div className="text-sm text-slate-400">Cape Peninsula University of Technology</div>
-          <div className="text-sm text-slate-400">Department of Applied Sciences</div>
+          <div className="font-heading font-semibold text-base mb-1">Front Desk</div>
+          <div className="text-sm text-slate-400">Mon – Fri · 07:30 – 18:00</div>
+          <div className="text-sm text-slate-400">Sat · 08:00 – 13:00</div>
         </div>
 
         <div>
           <div className="font-mono-tech text-[10px] text-[#10b981] uppercase tracking-widest mb-3">
             Build
           </div>
-          <div className="text-sm text-slate-400 mb-1">v2.0 · 2026</div>
+          <div className="text-sm text-slate-400 mb-1">v2.1 · 2026</div>
           <div className="text-sm text-slate-400">
-            Crafted by <span className="text-slate-200">Lesego Lebese</span> — Technical Lead
+            Crafted with care for driving instructors
           </div>
         </div>
       </div>
       <div className="border-t border-white/5 px-6 lg:px-10 py-4 text-[11px] text-slate-500 font-mono-tech uppercase tracking-widest flex justify-between">
-        <span>© 2026 CPUT Faculty · All rights reserved</span>
+        <span>© 2026 DriveMate · All rights reserved</span>
         <span className="hidden sm:block">Drive safe · Learn steady</span>
       </div>
     </footer>

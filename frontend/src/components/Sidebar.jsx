@@ -1,8 +1,9 @@
-import { Users, CalendarDays, UserCircle2 } from "lucide-react";
+import { Users, CalendarDays, UserCircle2, Truck } from "lucide-react";
 
 const items = [
   { id: "roster", label: "Instructor Roster", icon: Users, testId: "sidebar-roster" },
   { id: "scheduler", label: "Calendar Slots", icon: CalendarDays, testId: "sidebar-scheduler" },
+  { id: "fleet", label: "Fleet Manager", icon: Truck, testId: "sidebar-fleet" },
   { id: "profile", label: "Profile", icon: UserCircle2, testId: "sidebar-profile" },
 ];
 
@@ -40,10 +41,10 @@ export default function Sidebar({ active, onChange }) {
       })}
       <div className="mt-auto glass-card p-4">
         <div className="font-mono-tech text-[10px] text-[#10b981] uppercase tracking-widest mb-1">
-          Faculty
+          Fleet Status
         </div>
-        <div className="font-heading font-semibold text-sm leading-tight">CPUT</div>
-        <div className="text-[11px] text-slate-400 mt-1">Instructor Portal · v2.0</div>
+        <div className="font-heading font-semibold text-sm leading-tight">All Systems Go</div>
+        <div className="text-[11px] text-slate-400 mt-1">v2.1 · Automated reminders on</div>
       </div>
     </aside>
   );
