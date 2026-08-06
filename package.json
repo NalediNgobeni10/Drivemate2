@@ -1,7 +1,7 @@
 {
   "name": "drivemate-driving-school",
   "version": "1.0.0",
-  "description": "DriveMate Driving School Management System - Full Stack",
+  "description": "DriveMate Driving School Management System - Full Stack Local Deployment",
   "private": true,
   "scripts": {
     "setup": "npm install && cd backend && npm install && cd ../frontend && npm install",
@@ -10,8 +10,8 @@
     "frontend": "cd frontend && npm start",
     "build": "cd backend && npm run build && cd ../frontend && npm run build",
     "db:push": "cd backend && npx prisma db push",
-    "db:studio": "cd backend && npx prisma studio",
-    "db:seed": "cd backend && node prisma/seed.js"
+    "db:seed": "cd backend && node prisma/seed.js",
+    "db:studio": "cd backend && npx prisma studio"
   },
   "devDependencies": {
     "concurrently": "^8.2.2"

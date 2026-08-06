@@ -1,6 +1,6 @@
 # DriveMate Driving School Management System
 
-A comprehensive full-stack web application for managing driving school operations, including student bookings, instructor schedules, progress tracking, payments, and communications.
+A comprehensive full-stack web application for managing driving school operations, including student bookings, instructor schedules, progress tracking, payments, and communications. **100% Local Hosting - No Cloud Dependencies - Completely Free.**
 
 ## 🚗 Features
 
@@ -24,9 +24,10 @@ A comprehensive full-stack web application for managing driving school operation
 
 ### Backend
 - **Node.js** with Express.js
-- **Prisma ORM** with SQLite database
+- **Prisma ORM** with SQLite (local file database - completely free)
 - **JWT** for authentication
 - **bcryptjs** for password hashing
+- **CORS** for cross-origin requests
 
 ### Frontend
 - **React 18** with TypeScript
@@ -36,6 +37,8 @@ A comprehensive full-stack web application for managing driving school operation
 - **Axios** for API calls
 - **Recharts** for analytics visualization
 
+**Database: SQLite** - A powerful, zero-configuration, serverless SQL database engine. Perfect for local hosting with no external dependencies.
+
 ## 📋 Prerequisites
 
 - Node.js (v18 or higher)
@@ -44,53 +47,29 @@ A comprehensive full-stack web application for managing driving school operation
 
 ## 🚀 Installation
 
-1. **Clone the repository**
-   ```bash
-   git clone <repository-url>
-   cd Drivemate2
-   ```
+### 1. Install Dependencies
+```bash
+npm run setup
+```
+This installs dependencies for root, backend, and frontend in one command.
 
-2. **Install dependencies**
-   ```bash
-   npm run setup
-   ```
-   This will install dependencies for both backend and frontend.
+### 2. Initialize Database
+```bash
+npm run db:push
+```
+This creates the SQLite database with all required tables.
 
-3. **Set up environment variables**
-   
-   Create a `.env` file in the `backend` directory:
-   ```env
-   DATABASE_URL="file:./dev.db"
-   PORT=5000
-   JWT_SECRET="your-secret-key-change-in-production"
-   ```
+### 3. Seed Sample Data
+```bash
+npm run db:seed
+```
+This populates the database with demo accounts and sample data for testing.
 
-4. **Initialize the database**
-   ```bash
-   npm run db:push
-   ```
-
-5. **Seed the database with sample data**
-   ```bash
-   npm run db:seed
-   ```
-
-## 🏃 Running the Application
-
-### Development Mode
-Run both backend and frontend concurrently:
+### 4. Start the Application
 ```bash
 npm run dev
 ```
-
-### Individual Services
-- **Backend only**: `npm run backend`
-- **Frontend only**: `npm run frontend`
-
-### Production Build
-```bash
-npm run build
-```
+This starts both backend (port 5000) and frontend (port 3000) concurrently.
 
 ## 📱 Demo Credentials
 
@@ -131,6 +110,18 @@ The application uses a professional dark theme with:
 - **Card borders**: Slate (`#1E293B`)
 - **Highlight pills**: Neon emerald (`#10b981`)
 
+## 💾 Database
+
+**SQLite is used for all data storage:**
+- **File Location**: `backend/dev.db`
+- **Zero Configuration**: Database is created automatically on first run
+- **Completely Free**: No licensing costs
+- **Fully Portable**: Entire database is one file - can be copied anywhere
+- **Perfect for Local Hosting**: No external database server needed
+- **No Dependencies**: No need to install PostgreSQL, MySQL, or other databases
+
+The database includes all tables for users, bookings, payments, messages, feedback, quiz attempts, and notifications.
+
 ## 📁 Project Structure
 
 ```
@@ -139,18 +130,12 @@ Drivemate2/
 │   ├── prisma/
 │   │   ├── schema.prisma    # Database schema
 │   │   └── seed.js          # Database seed script
-│   ├── server.js            # Express API server
+│   ├── server.js            # Express API server (Node.js)
+│   ├── dev.db               # SQLite database (auto-created)
 │   ├── package.json
-│   └── .env.example
+│   └── .env                 # Environment variables (auto-created)
 ├── frontend/
-│   ├── src/
-│   │   ├── components/      # Reusable components
-│   │   ├── context/         # React context (Auth)
-│   │   ├── lib/             # API client
-│   │   ├── pages/           # Page components
-│   │   ├── types/           # TypeScript types
-│   │   ├── App.tsx          # Main app component
-│   │   └── index.tsx        # Entry point
+│   ├── src/                 # React source code
 │   ├── package.json
 │   └── tailwind.config.js
 ├── package.json             # Root package.json
