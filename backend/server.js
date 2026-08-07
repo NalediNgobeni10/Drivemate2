@@ -1,11 +1,17 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { PrismaClient } from '@prisma/client';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 
 dotenv.config();
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const frontendBuildPath = path.join(__dirname, '../frontend/build');
 
 const app = express();
 const prisma = new PrismaClient();
@@ -998,6 +1004,23 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'DriveMate API is running' });
 });
 
+// ============ SERVE FRONTEND (single-server deployment) ============
+
+app.use(express.static(frontendBuildPath));
+
+app.get('*', (req, res, next) => {
+  if (req.path.startsWith('/api')) {
+    return next();
+  }
+  res.sendFile(path.join(frontendBuildPath, 'index.html'), (err) => {
+    if (err) {
+      res.status(404).json({
+        error: 'Frontend not built. Run: npm run build',
+      });
+    }
+  });
+});
+
 // ============ ERROR HANDLING ============
 
 app.use((err, req, res, next) => {
@@ -1008,17 +1031,9 @@ app.use((err, req, res, next) => {
 // ============ START SERVER ============
 
 app.listen(PORT, () => {
-  console.log(`🚗 DriveMate API running on http://localhost:${PORT}`);
-  console.log(`📚 API Routes:`);
-  console.log(`  Auth: POST /api/auth/register, /api/auth/login, GET /api/auth/me`);
-  console.log(`  Users: GET /api/admin/users, PATCH /api/admin/users/:id`);
-  console.log(`  Slots: POST /api/slots, GET /api/slots/available`);
-  console.log(`  Bookings: POST /api/bookings/:slotId, GET /api/bookings/my-lessons`);
-  console.log(`  Payments: GET /api/payments/packages, POST /api/payments`);
-  console.log(`  Messages: POST /api/messages, GET /api/messages/:peerId`);
-  console.log(`  Feedback: POST /api/feedback, GET /api/feedback/:studentId`);
-  console.log(`  Quiz: GET /api/quiz/questions, POST /api/quiz/attempt`);
-  console.log(`  Analytics: GET /api/admin/analytics`);
+  console.log(`🚗 DriveMate running at http://localhost:${PORT}`);
+  console.log(`   Frontend + API served from a single server`);
+  console.log(`   Database: SQLite (backend/prisma/dev.db)`);
 });
 
 export default app;

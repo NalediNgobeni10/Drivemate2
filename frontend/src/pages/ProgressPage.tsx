@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { TrendingUp, BookOpen, Star, AlertCircle, Loader, Edit, Save } from 'lucide-react';
+import { TrendingUp, BookOpen, Star, AlertCircle, Loader } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { progressAPI, feedbackAPI, bookingsAPI } from '../lib/api';
 import type { StudentProgress, Feedback, Booking } from '../types';
@@ -11,10 +11,6 @@ const ProgressPage: React.FC = () => {
   const [history, setHistory] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  
-  // Instructor edit mode
-  const [isEditing, setIsEditing] = useState(false);
-  const [editData, setEditData] = useState({ progressPct: 0, rating: 0, lessonNotes: '', completedLessons: 0 });
 
   useEffect(() => {
     const fetchData = async () => {
@@ -44,29 +40,6 @@ const ProgressPage: React.FC = () => {
     };
     fetchData();
   }, [user?.id, user?.role]);
-
-  const handleSaveProgress = async () => {
-    if (!progress) return;
-    try {
-      await progressAPI.update(progress.studentId, editData);
-      setProgress({ ...progress, ...editData });
-      setIsEditing(false);
-    } catch (err: any) {
-      setError(err.response?.data?.error || 'Failed to update progress');
-    }
-  };
-
-  const handleEdit = () => {
-    if (progress) {
-      setEditData({
-        progressPct: progress.progressPct,
-        rating: progress.rating,
-        lessonNotes: progress.lessonNotes || '',
-        completedLessons: progress.completedLessons,
-      });
-      setIsEditing(true);
-    }
-  };
 
   if (loading) {
     return (
@@ -194,90 +167,33 @@ const ProgressPage: React.FC = () => {
               <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-6">
                 <div className="flex items-center justify-between mb-6">
                   <h2 className="text-xl font-bold text-white">Progress Details</h2>
-                  {user?.role === 'INSTRUCTOR' && (
-                    <button
-                      onClick={isEditing ? handleSaveProgress : handleEdit}
-                      className="flex items-center gap-2 px-3 py-1 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg text-sm transition"
-                    >
-                      {isEditing ? <Save size={16} /> : <Edit size={16} />}
-                      {isEditing ? 'Save' : 'Edit'}
-                    </button>
-                  )}
                 </div>
 
-                {isEditing ? (
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-slate-300 mb-2">Progress (%)</label>
-                      <input
-                        type="number"
-                        min="0"
-                        max="100"
-                        value={editData.progressPct}
-                        onChange={(e) => setEditData({ ...editData, progressPct: parseInt(e.target.value) })}
-                        className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:border-emerald-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-slate-300 mb-2">Rating (0-5)</label>
-                      <input
-                        type="number"
-                        min="0"
-                        max="5"
-                        step="0.1"
-                        value={editData.rating}
-                        onChange={(e) => setEditData({ ...editData, rating: parseFloat(e.target.value) })}
-                        className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:border-emerald-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-slate-300 mb-2">Completed Lessons</label>
-                      <input
-                        type="number"
-                        min="0"
-                        max={progress.totalLessons}
-                        value={editData.completedLessons}
-                        onChange={(e) => setEditData({ ...editData, completedLessons: parseInt(e.target.value) })}
-                        className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:border-emerald-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-slate-300 mb-2">Lesson Notes</label>
-                      <textarea
-                        value={editData.lessonNotes}
-                        onChange={(e) => setEditData({ ...editData, lessonNotes: e.target.value })}
-                        rows={4}
-                        className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:border-emerald-500"
-                      />
-                    </div>
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between py-2 border-b border-slate-700">
+                    <span className="text-slate-400">License Track</span>
+                    <span className="text-white font-medium">{progress.track.replace('_', ' ')}</span>
                   </div>
-                ) : (
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between py-2 border-b border-slate-700">
-                      <span className="text-slate-400">License Track</span>
-                      <span className="text-white font-medium">{progress.track.replace('_', ' ')}</span>
-                    </div>
-                    <div className="flex items-center justify-between py-2 border-b border-slate-700">
-                      <span className="text-slate-400">Progress</span>
-                      <span className="text-white font-medium">{progress.progressPct}%</span>
-                    </div>
-                    <div className="flex items-center justify-between py-2 border-b border-slate-700">
-                      <span className="text-slate-400">Rating</span>
-                      <span className="text-white font-medium flex items-center gap-1">
-                        <Star size={16} className="text-amber-400 fill-amber-400" />
-                        {progress.rating.toFixed(1)}/5
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between py-2 border-b border-slate-700">
-                      <span className="text-slate-400">Completed Lessons</span>
-                      <span className="text-white font-medium">{progress.completedLessons}/{progress.totalLessons}</span>
-                    </div>
-                    <div className="py-2">
-                      <span className="text-slate-400 block mb-2">Instructor Notes</span>
-                      <p className="text-white bg-slate-700/30 rounded-lg p-3">{progress.lessonNotes || 'No notes yet'}</p>
-                    </div>
+                  <div className="flex items-center justify-between py-2 border-b border-slate-700">
+                    <span className="text-slate-400">Progress</span>
+                    <span className="text-white font-medium">{progress.progressPct}%</span>
                   </div>
-                )}
+                  <div className="flex items-center justify-between py-2 border-b border-slate-700">
+                    <span className="text-slate-400">Rating</span>
+                    <span className="text-white font-medium flex items-center gap-1">
+                      <Star size={16} className="text-amber-400 fill-amber-400" />
+                      {progress.rating.toFixed(1)}/5
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between py-2 border-b border-slate-700">
+                    <span className="text-slate-400">Completed Lessons</span>
+                    <span className="text-white font-medium">{progress.completedLessons}/{progress.totalLessons}</span>
+                  </div>
+                  <div className="py-2">
+                    <span className="text-slate-400 block mb-2">Instructor Notes</span>
+                    <p className="text-white bg-slate-700/30 rounded-lg p-3">{progress.lessonNotes || 'No notes yet'}</p>
+                  </div>
+                </div>
               </div>
 
               {/* Feedback History */}

@@ -23,7 +23,7 @@ const AdminDashboard: React.FC = () => {
         ]);
         setUsers(usersRes.data.users);
         setAnalytics(analyticsRes.data);
-        setPayments(paymentsRes.data.payments);
+        setPayments((paymentsRes.data as any).payments);
       } catch (err: any) {
         setError(err.response?.data?.error || 'Failed to load data');
       } finally {

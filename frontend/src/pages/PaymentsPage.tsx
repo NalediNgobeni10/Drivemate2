@@ -19,7 +19,10 @@ const PaymentsPage: React.FC = () => {
           user?.role === 'ADMIN' ? paymentsAPI.getAdmin() : paymentsAPI.getMy(),
           paymentsAPI.getPackages(),
         ]);
-        setPayments(user?.role === 'ADMIN' ? paymentsRes.data.payments : paymentsRes.data);
+        const paymentsData = user?.role === 'ADMIN' 
+          ? (paymentsRes.data as any).payments 
+          : paymentsRes.data;
+        setPayments(paymentsData);
         setPackages(packagesRes.data);
       } catch (err: any) {
         setError(err.response?.data?.error || 'Failed to load payments');
