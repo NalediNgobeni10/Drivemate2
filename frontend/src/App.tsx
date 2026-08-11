@@ -22,13 +22,16 @@ import {
   BarChart3,
   FileText,
   MessageCircle,
+  Moon,
+  Sun,
 } from 'lucide-react';
 import './App.css';
 import { useAuth } from './context/AuthContext';
+import { ThemeProvider, useTheme } from './context/ThemeContext';
 import LoginPage from './pages/LoginPage';
+import LandingPage from './pages/LandingPage';
 import StudentDashboard from './pages/StudentDashboard';
 import InstructorDashboard from './pages/InstructorDashboard';
-import InstructorSchedule from './pages/InstructorSchedule';
 import AdminDashboard from './pages/AdminDashboard';
 import BookingPage from './pages/BookingPage';
 import PaymentsPage from './pages/PaymentsPage';
@@ -122,6 +125,7 @@ const RoleSwitcher: React.FC = () => {
 // Navigation Component
 const Navbar: React.FC = () => {
   const { user, logout } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -130,7 +134,7 @@ const Navbar: React.FC = () => {
   const menuItems = [
     ...(user.role === 'STUDENT'
       ? [
-          { path: '/', label: 'Dashboard', icon: Home },
+          { path: '/dashboard', label: 'Dashboard', icon: Home },
           { path: '/bookings', label: 'Book Lesson', icon: Calendar },
           { path: '/my-lessons', label: 'My Lessons', icon: BookOpen },
           { path: '/payments', label: 'Payments', icon: CreditCard },
@@ -139,14 +143,13 @@ const Navbar: React.FC = () => {
         ]
       : user.role === 'INSTRUCTOR'
       ? [
-          { path: '/', label: 'Dashboard', icon: Home },
-          { path: '/schedule', label: 'My Schedule', icon: Calendar },
+          { path: '/dashboard', label: 'Dashboard', icon: Home },
           { path: '/my-students', label: 'My Students', icon: Users },
           { path: '/messages', label: 'Messages', icon: MessageCircle },
           { path: '/analytics', label: 'Performance', icon: TrendingUp },
         ]
       : [
-          { path: '/', label: 'Dashboard', icon: Home },
+          { path: '/dashboard', label: 'Dashboard', icon: Home },
           { path: '/users', label: 'User Manager', icon: Users },
           { path: '/analytics', label: 'Analytics', icon: BarChart3 },
           { path: '/payments', label: 'Payments', icon: CreditCard },
@@ -279,16 +282,18 @@ const App: React.FC = () => {
   }
 
   return (
-    <Router>
-      {user && <Navbar />}
+    <ThemeProvider>
+      <Router>
+        {user && <Navbar />}
       <main className={user ? 'pt-16 min-h-screen bg-gradient-to-br from-slate-900 to-slate-800' : ''}>
         <Routes>
           {/* Public Routes */}
-          <Route path="/login" element={user ? <Navigate to="/" /> : <LoginPage />} />
+          <Route path="/" element={user ? <Navigate to="/dashboard" /> : <LandingPage />} />
+          <Route path="/login" element={user ? <Navigate to="/dashboard" /> : <LoginPage />} />
 
           {/* Protected Routes - Student */}
           <Route
-            path="/"
+            path="/dashboard"
             element={
               <ProtectedRoute allowedRoles={['STUDENT', 'INSTRUCTOR', 'ADMIN']}>
                 {user?.role === 'STUDENT' && <StudentDashboard />}
@@ -343,14 +348,6 @@ const App: React.FC = () => {
             }
           />
 
-          <Route
-            path="/schedule"
-            element={
-              <ProtectedRoute allowedRoles={['INSTRUCTOR']}>
-                <InstructorSchedule />
-              </ProtectedRoute>
-            }
-          />
 
           <Route
             path="/my-students"
@@ -401,7 +398,8 @@ const App: React.FC = () => {
         </Routes>
       </main>
       {user && <Footer />}
-    </Router>
+      </Router>
+    </ThemeProvider>
   );
 };
 

@@ -58,7 +58,6 @@ const PaymentsPage: React.FC = () => {
   useEffect(() => {
     fetchData();
     loadCredits();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.role]);
 
   // Student: create a PENDING order then open the checkout modal
