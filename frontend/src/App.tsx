@@ -28,6 +28,7 @@ import { useAuth } from './context/AuthContext';
 import LoginPage from './pages/LoginPage';
 import StudentDashboard from './pages/StudentDashboard';
 import InstructorDashboard from './pages/InstructorDashboard';
+import InstructorSchedule from './pages/InstructorSchedule';
 import AdminDashboard from './pages/AdminDashboard';
 import BookingPage from './pages/BookingPage';
 import PaymentsPage from './pages/PaymentsPage';
@@ -346,7 +347,7 @@ const App: React.FC = () => {
             path="/schedule"
             element={
               <ProtectedRoute allowedRoles={['INSTRUCTOR']}>
-                <BookingPage />
+                <InstructorSchedule />
               </ProtectedRoute>
             }
           />

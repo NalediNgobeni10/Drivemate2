@@ -1,13 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { Calendar, Users, TrendingUp, Clock, AlertCircle, Loader, Plus, Trash2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { slotsAPI, bookingsAPI, progressAPI } from '../lib/api';
-import type { AvailabilitySlot, Booking, StudentProgress } from '../types';
+import { slotsAPI } from '../lib/api';
+import type { AvailabilitySlot } from '../types';
 
 const InstructorDashboard: React.FC = () => {
   const { user } = useAuth();
   const [slots, setSlots] = useState<AvailabilitySlot[]>([]);
-  const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   
@@ -18,12 +17,8 @@ const InstructorDashboard: React.FC = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [slotsRes, bookingsRes] = await Promise.all([
-          slotsAPI.getMySchedule(),
-          bookingsAPI.getMyLessons(),
-        ]);
+        const slotsRes = await slotsAPI.getMySchedule();
         setSlots(slotsRes.data);
-        setBookings(bookingsRes.data);
       } catch (err: any) {
         setError(err.response?.data?.error || 'Failed to load data');
       } finally {
@@ -109,7 +104,7 @@ const InstructorDashboard: React.FC = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-slate-400 text-sm">Total Students</p>
-                <p className="text-white text-2xl font-bold mt-1">{new Set(bookings.map(b => b.studentId)).size}</p>
+                <p className="text-white text-2xl font-bold mt-1">{new Set(bookedSlots.map(s => s.studentId)).size}</p>
               </div>
               <Users className="text-purple-400" size={32} />
             </div>
@@ -224,7 +219,7 @@ const InstructorDashboard: React.FC = () => {
                         Booked
                       </span>
                     </div>
-                    <p className="text-slate-400 text-sm">Student ID: {slot.studentId?.slice(0, 8)}...</p>
+                    <p className="text-slate-400 text-sm">Student: {slot.booking?.student?.name || 'Assigned student'}</p>
                   </div>
                 ))}
               </div>
@@ -273,3 +268,4 @@ const InstructorDashboard: React.FC = () => {
 };
 
 export default InstructorDashboard;
+

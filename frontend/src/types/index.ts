@@ -34,6 +34,7 @@ export interface AvailabilitySlot {
   isBooked: boolean;
   studentId?: string;
   instructor?: { id: string; name: string };
+  booking?: { id: string; status: string; student?: { id: string; name: string } };
   createdAt: string;
 }
 
@@ -51,11 +52,18 @@ export interface Payment {
   id: string;
   studentId: string;
   amount: number;
-  status: 'PENDING' | 'PAID' | 'FAILED';
+  status: 'PENDING' | 'PAID' | 'FAILED' | 'REFUNDED';
   packageType: string;
   lessonsIncluded: number;
+  student?: { name: string; email: string };
   createdAt: string;
   updatedAt: string;
+}
+
+export interface LessonCredits {
+  totalPaidLessons: number;
+  usedLessons: number;
+  availableCredits: number;
 }
 
 export interface Message {

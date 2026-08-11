@@ -27,3 +27,9 @@ yarn-error.log*
 # Development tools
 .cache/
 .ipynb_checkpoints/
+.env
+.env.*
+*.env
+credentials.json
+*.key
+.credentials

@@ -265,11 +265,12 @@ app.get('/api/slots/available', authenticateToken, async (req, res) => {
   }
 });
 
-// Get instructor's own slots
-app.get('/api/slots/my-schedule', authenticateToken, authorize(['INSTRUCTOR']), async (req, res) => {
+// Get instructor's own slots (includes booked student details)
+app.get('/api/slots/my-schedule', authenticateToken, authorize(['INSTRUCTOR', 'ADMIN']), async (req, res) => {
   try {
     const slots = await prisma.availabilitySlot.findMany({
       where: { instructorId: req.user.id },
+      include: { booking: { include: { student: { select: { id: true, name: true } } } } },
       orderBy: [{ date: 'asc' }, { timeWindow: 'asc' }],
     });
 
@@ -326,6 +327,22 @@ app.post('/api/bookings/:slotId', authenticateToken, authorize(['STUDENT', 'ADMI
 
     if (existingBooking) {
       return res.status(409).json({ error: 'You already have a lesson at this time' });
+    }
+
+    // Students must have an active PAID package with remaining lesson credits
+    if (req.user.role === 'STUDENT') {
+      const paidPayments = await prisma.payment.findMany({
+        where: { studentId: req.user.id, status: 'PAID' },
+      });
+      const totalPaidLessons = paidPayments.reduce((sum, p) => sum + p.lessonsIncluded, 0);
+      const usedLessons = await prisma.booking.count({
+        where: { studentId: req.user.id, status: { not: 'CANCELLED' } },
+      });
+      if (totalPaidLessons - usedLessons <= 0) {
+        return res.status(402).json({
+          error: 'No lesson credits available. Please purchase and pay for a package before booking.',
+        });
+      }
     }
 
     // Book the slot in transaction
@@ -484,6 +501,26 @@ app.get('/api/lessons/history', authenticateToken, async (req, res) => {
     res.json(history);
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch history' });
+  }
+});
+
+// Get student's lesson credits (from paid packages minus booked lessons)
+app.get('/api/lessons/credits', authenticateToken, authorize(['STUDENT']), async (req, res) => {
+  try {
+    const paidPayments = await prisma.payment.findMany({
+      where: { studentId: req.user.id, status: 'PAID' },
+    });
+    const totalPaidLessons = paidPayments.reduce((sum, p) => sum + p.lessonsIncluded, 0);
+    const usedLessons = await prisma.booking.count({
+      where: { studentId: req.user.id, status: { not: 'CANCELLED' } },
+    });
+    res.json({
+      totalPaidLessons,
+      usedLessons,
+      availableCredits: Math.max(0, totalPaidLessons - usedLessons),
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch credits' });
   }
 });
 

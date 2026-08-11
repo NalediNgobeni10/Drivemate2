@@ -43,12 +43,21 @@ const AdminDashboard: React.FC = () => {
   };
 
   const handleDeleteUser = async (userId: string) => {
-    if (!confirm('Are you sure you want to delete this user?')) return;
+    if (!window.confirm('Are you sure you want to delete this user?')) return;
     try {
       await usersAPI.delete(userId);
       setUsers(users.filter(u => u.id !== userId));
     } catch (err: any) {
       setError(err.response?.data?.error || 'Failed to delete user');
+    }
+  };
+
+  const handlePaymentStatus = async (paymentId: string, status: string) => {
+    try {
+      await paymentsAPI.update(paymentId, status);
+      setPayments(payments.map(p => p.id === paymentId ? { ...p, status: status as any } : p));
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Failed to update payment');
     }
   };
 
@@ -257,10 +266,13 @@ const AdminDashboard: React.FC = () => {
 
         {activeTab === 'payments' && (
           <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-6">
-            <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
-              <DollarSign size={24} className="text-emerald-400" />
-              Payment History
-            </h2>
+            <div className="flex items-center justify-between mb-6 flex-wrap gap-2">
+              <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                <DollarSign size={24} className="text-emerald-400" />
+                Payment Management
+              </h2>
+              <p className="text-slate-400 text-sm">Change a payment status to approve or reverse a student's package</p>
+            </div>
 
             <div className="overflow-x-auto">
               <table className="w-full">
@@ -269,26 +281,42 @@ const AdminDashboard: React.FC = () => {
                     <th className="text-left py-3 px-4 text-slate-400 font-medium">Student</th>
                     <th className="text-left py-3 px-4 text-slate-400 font-medium">Package</th>
                     <th className="text-left py-3 px-4 text-slate-400 font-medium">Amount</th>
+                    <th className="text-left py-3 px-4 text-slate-400 font-medium">Lessons</th>
                     <th className="text-left py-3 px-4 text-slate-400 font-medium">Status</th>
                     <th className="text-left py-3 px-4 text-slate-400 font-medium">Date</th>
+                    <th className="text-left py-3 px-4 text-slate-400 font-medium">Set Status</th>
                   </tr>
                 </thead>
                 <tbody>
                   {payments.map((p) => (
-                    <tr key={p.id} className="border-b border-slate-700 hover:bg-slate-700/30">
-                      <td className="py-3 px-4 text-white">{p.studentId.slice(0, 8)}...</td>
+                    <tr key={p.id} className="border-b border-slate-700 hover:bg-slate-700/30" data-testid={`admin-payment-row-${p.id}`}>
+                      <td className="py-3 px-4 text-white">{p.student?.name || p.studentId.slice(0, 8)}</td>
                       <td className="py-3 px-4 text-slate-400 capitalize">{p.packageType}</td>
                       <td className="py-3 px-4 text-white">R {p.amount.toLocaleString()}</td>
+                      <td className="py-3 px-4 text-white">{p.lessonsIncluded}</td>
                       <td className="py-3 px-4">
                         <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                           p.status === 'PAID' ? 'bg-emerald-500/20 text-emerald-400' :
                           p.status === 'PENDING' ? 'bg-amber-500/20 text-amber-400' :
+                          p.status === 'REFUNDED' ? 'bg-blue-500/20 text-blue-300' :
                           'bg-red-500/20 text-red-400'
                         }`}>
                           {p.status}
                         </span>
                       </td>
                       <td className="py-3 px-4 text-slate-400">{new Date(p.createdAt).toLocaleDateString()}</td>
+                      <td className="py-3 px-4">
+                        <select
+                          data-testid={`admin-dashboard-status-${p.id}`}
+                          value={p.status}
+                          onChange={(e) => handlePaymentStatus(p.id, e.target.value)}
+                          className="bg-slate-700 border border-slate-600 rounded px-2 py-1 text-white text-sm focus:outline-none focus:border-emerald-500"
+                        >
+                          {['PENDING', 'PAID', 'FAILED', 'REFUNDED'].map((s) => (
+                            <option key={s} value={s}>{s}</option>
+                          ))}
+                        </select>
+                      </td>
                     </tr>
                   ))}
                 </tbody>

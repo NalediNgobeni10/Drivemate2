@@ -69,6 +69,10 @@ export const progressAPI = {
   update: (studentId: string, data: Partial<StudentProgress>) =>
     api.patch<StudentProgress>(`/progress/${studentId}`, data),
   getHistory: () => api.get<Booking[]>('/lessons/history'),
+  getCredits: () =>
+    api.get<{ totalPaidLessons: number; usedLessons: number; availableCredits: number }>(
+      '/lessons/credits'
+    ),
 };
 
 // Payments

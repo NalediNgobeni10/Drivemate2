@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { Calendar, Clock, Car, AlertCircle, Loader, Check } from 'lucide-react';
+import { Calendar, Clock, Car, AlertCircle, Loader, Check, Ticket } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { slotsAPI, bookingsAPI } from '../lib/api';
+import { slotsAPI, bookingsAPI, progressAPI } from '../lib/api';
 import type { AvailabilitySlot } from '../types';
 
 const BookingPage: React.FC = () => {
@@ -11,6 +12,16 @@ const BookingPage: React.FC = () => {
   const [error, setError] = useState('');
   const [selectedDate, setSelectedDate] = useState('');
   const [booking, setBooking] = useState<string | null>(null);
+  const [credits, setCredits] = useState<{ availableCredits: number } | null>(null);
+
+  const loadCredits = async () => {
+    try {
+      const res = await progressAPI.getCredits();
+      setCredits(res.data);
+    } catch {
+      /* non-blocking */
+    }
+  };
 
   useEffect(() => {
     const fetchSlots = async () => {
@@ -26,17 +37,25 @@ const BookingPage: React.FC = () => {
     fetchSlots();
   }, [selectedDate]);
 
+  useEffect(() => {
+    loadCredits();
+  }, []);
+
   const handleBook = async (slotId: string) => {
     setBooking(slotId);
+    setError('');
     try {
       await bookingsAPI.book(slotId);
       setSlots(slots.filter(s => s.id !== slotId));
       setBooking(null);
+      loadCredits();
     } catch (err: any) {
       setError(err.response?.data?.error || 'Failed to book slot');
       setBooking(null);
     }
   };
+
+  const noCredits = credits !== null && credits.availableCredits <= 0;
 
   if (loading) {
     return (
@@ -60,6 +79,34 @@ const BookingPage: React.FC = () => {
           <div className="mb-6 p-4 bg-red-500/10 border border-red-500/50 rounded-lg flex items-center gap-2">
             <AlertCircle size={20} className="text-red-400" />
             <p className="text-red-400">{error}</p>
+          </div>
+        )}
+
+        {/* Lesson credits status */}
+        {credits !== null && (
+          <div
+            className={`mb-6 rounded-xl p-4 flex items-center justify-between flex-wrap gap-3 border ${
+              noCredits ? 'bg-amber-500/10 border-amber-500/40' : 'bg-emerald-500/10 border-emerald-500/40'
+            }`}
+            data-testid="booking-credits-banner"
+          >
+            <div className="flex items-center gap-3">
+              <Ticket size={22} className={noCredits ? 'text-amber-400' : 'text-emerald-400'} />
+              <p className="text-white font-medium">
+                {noCredits
+                  ? 'You have no lesson credits. Purchase and pay for a package to book lessons.'
+                  : `${credits.availableCredits} lesson credit${credits.availableCredits === 1 ? '' : 's'} available`}
+              </p>
+            </div>
+            {noCredits && (
+              <Link
+                to="/payments"
+                data-testid="go-to-payments-btn"
+                className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg text-sm transition"
+              >
+                Buy a Package
+              </Link>
+            )}
           </div>
         )}
 
@@ -115,7 +162,9 @@ const BookingPage: React.FC = () => {
                   </div>
                   <button
                     onClick={() => handleBook(slot.id)}
-                    disabled={booking === slot.id}
+                    disabled={booking === slot.id || noCredits}
+                    data-testid={`book-slot-${slot.id}`}
+                    title={noCredits ? 'Purchase a package to book' : 'Book this slot'}
                     className="flex items-center gap-2 px-4 py-2 bg-emerald-500 hover:bg-emerald-600 disabled:bg-slate-600 disabled:cursor-not-allowed text-white rounded-lg transition"
                   >
                     {booking === slot.id ? (
