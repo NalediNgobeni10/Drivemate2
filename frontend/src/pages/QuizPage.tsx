@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { FileText, CheckCircle, XCircle, AlertCircle, Loader, RotateCcw } from 'lucide-react';
+import { FileText, CheckCircle, XCircle, AlertCircle, Loader, RotateCcw, ArrowLeft } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { quizAPI } from '../lib/api';
 import type { QuizQuestion, QuizAttempt } from '../types';
@@ -70,6 +71,13 @@ const QuizPage: React.FC = () => {
     <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-800 py-8">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="mb-8">
+          <Link
+            to="/dashboard"
+            className="inline-flex items-center gap-2 text-slate-400 hover:text-emerald-400 transition mb-4"
+          >
+            <ArrowLeft size={18} />
+            <span>Back to Dashboard</span>
+          </Link>
           <h1 className="text-3xl font-bold text-white mb-2">K53 Learner's Licence Quiz</h1>
           <p className="text-slate-400">Test your knowledge of South African road rules</p>
         </div>

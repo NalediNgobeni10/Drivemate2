@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { TrendingUp, BookOpen, Star, AlertCircle, Loader } from 'lucide-react';
+import { TrendingUp, BookOpen, Star, AlertCircle, Loader, ArrowLeft } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { progressAPI, feedbackAPI, bookingsAPI } from '../lib/api';
 import type { StudentProgress, Feedback, Booking } from '../types';
@@ -54,6 +55,13 @@ const ProgressPage: React.FC = () => {
       <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-800 py-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="mb-8">
+            <Link
+              to="/dashboard"
+              className="inline-flex items-center gap-2 text-slate-400 hover:text-emerald-400 transition mb-4"
+            >
+              <ArrowLeft size={18} />
+              <span>Back to Dashboard</span>
+            </Link>
             <h1 className="text-3xl font-bold text-white mb-2">My Students</h1>
             <p className="text-slate-400">View and manage student progress</p>
           </div>
@@ -103,6 +111,13 @@ const ProgressPage: React.FC = () => {
     <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-800 py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="mb-8">
+          <Link
+            to="/dashboard"
+            className="inline-flex items-center gap-2 text-slate-400 hover:text-emerald-400 transition mb-4"
+          >
+            <ArrowLeft size={18} />
+            <span>Back to Dashboard</span>
+          </Link>
           <h1 className="text-3xl font-bold text-white mb-2">Lesson Progress</h1>
           <p className="text-slate-400">Track your driving lesson progress and feedback</p>
         </div>

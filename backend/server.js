@@ -7,16 +7,26 @@ import { PrismaClient } from '@prisma/client';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 
-dotenv.config();
-
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+// Load .env from the backend directory
+dotenv.config({ path: path.join(__dirname, '.env') });
+
 const frontendBuildPath = path.join(__dirname, '../frontend/build');
 
 const app = express();
-const prisma = new PrismaClient();
 const PORT = process.env.PORT || 5000;
 const JWT_SECRET = process.env.JWT_SECRET || 'drivemate-secret-key-change-in-production';
+
+// Initialize Prisma after environment variables are loaded
+const prisma = new PrismaClient({
+  datasources: {
+    db: {
+      url: process.env.DATABASE_URL || `file:${path.join(__dirname, 'prisma', 'dev.db')}`
+    }
+  }
+});
 
 // Middleware
 app.use(cors());
