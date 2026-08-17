@@ -29,6 +29,10 @@ model User {
   payments          Payment[]
   quizAttempts      QuizAttempt[]
   notifications     Notification[]
+  refreshTokens     RefreshToken[]
+  documents         Document[]
+  attendanceAsStudent Attendance[] @relation("StudentAttendance")
+  attendanceAsInstructor Attendance[] @relation("InstructorAttendance")
 
   @@index([email])
   @@index([role])
@@ -93,6 +97,9 @@ model Booking {
 
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
+
+  // Relations
+  attendance        Attendance?
 
   @@index([studentId])
   @@index([status])
@@ -184,5 +191,86 @@ model Notification {
   createdAt         DateTime  @default(now())
 
   @@index([userId])
+}
+
+model RefreshToken {
+  id                String    @id @default(cuid())
+  token             String    @unique
+  userId            String
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt         DateTime
+  createdAt         DateTime  @default(now())
+
+  @@index([token])
+  @@index([userId])
+}
+
+model Vehicle {
+  id                String    @id @default(cuid())
+  make              String
+  model             String
+  year              Int
+  licensePlate      String    @unique
+  vehicleType       String    // "manual", "automatic"
+  code              String    // "CODE_8", "CODE_10", "CODE_14"
+  status            String    @default("AVAILABLE") // "AVAILABLE", "IN_USE", "MAINTENANCE", "OUT_OF_SERVICE"
+  currentMileage    Int       @default(0)
+  lastServiceDate   DateTime?
+  nextServiceDate   DateTime?
+  notes             String?
+
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  // Relations
+  slots             AvailabilitySlot[]
+
+  @@index([licensePlate])
+  @@index([status])
+  @@index([code])
+}
+
+model Document {
+  id                String    @id @default(cuid())
+  userId            String
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  documentType      String    // "ID", "LEARNERS_LICENSE", "MEDICAL_CERTIFICATE", "PROOF_OF_ADDRESS"
+  fileName          String
+  fileUrl           String
+  fileSize          Int
+  mimeType          String
+  status            String    @default("PENDING") // "PENDING", "APPROVED", "REJECTED"
+  reviewedBy        String?
+  reviewedAt        DateTime?
+  rejectionReason   String?
+
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@index([userId])
+  @@index([documentType])
+  @@index([status])
+}
+
+model Attendance {
+  id                String    @id @default(cuid())
+  bookingId         String    @unique
+  booking           Booking   @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  studentId         String
+  student           User      @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  instructorId      String
+  instructor        User      @relation(fields: [instructorId], references: [id], onDelete: Cascade)
+  status            String    @default("PRESENT") // "PRESENT", "ABSENT", "CANCELLED", "NO_SHOW"
+  checkInTime       DateTime?
+  checkOutTime      DateTime?
+  notes             String?
+
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@index([bookingId])
+  @@index([studentId])
+  @@index([instructorId])
+  @@index([status])
 }
 

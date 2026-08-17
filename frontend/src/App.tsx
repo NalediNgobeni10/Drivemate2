@@ -24,6 +24,9 @@ import {
   MessageCircle,
   Moon,
   Sun,
+  Car,
+  Upload,
+  CheckCircle,
 } from 'lucide-react';
 import './App.css';
 import { useAuth } from './context/AuthContext';
@@ -40,6 +43,9 @@ import ProgressPage from './pages/ProgressPage';
 import QuizPage from './pages/QuizPage';
 import ProfilePage from './pages/ProfilePage';
 import NotificationsPage from './pages/NotificationsPage';
+import VehiclesPage from './pages/VehiclesPage';
+import DocumentsPage from './pages/DocumentsPage';
+import AttendancePage from './pages/AttendancePage';
 
 // Protected Route Component
 const ProtectedRoute: React.FC<{ children: React.ReactNode; allowedRoles?: string[] }> = ({
@@ -151,6 +157,9 @@ const Navbar: React.FC = () => {
       : [
           { path: '/dashboard', label: 'Dashboard', icon: Home },
           { path: '/users', label: 'User Manager', icon: Users },
+          { path: '/vehicles', label: 'Vehicles', icon: Car },
+          { path: '/documents', label: 'Documents', icon: FileText },
+          { path: '/attendance', label: 'Attendance', icon: CheckCircle },
           { path: '/analytics', label: 'Analytics', icon: BarChart3 },
           { path: '/payments', label: 'Payments', icon: CreditCard },
           { path: '/messages', label: 'Messages', icon: MessageCircle },
@@ -390,6 +399,33 @@ const App: React.FC = () => {
             element={
               <ProtectedRoute allowedRoles={['STUDENT', 'INSTRUCTOR', 'ADMIN']}>
                 <ProfilePage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/vehicles"
+            element={
+              <ProtectedRoute allowedRoles={['ADMIN']}>
+                <VehiclesPage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/documents"
+            element={
+              <ProtectedRoute allowedRoles={['STUDENT', 'ADMIN']}>
+                <DocumentsPage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/attendance"
+            element={
+              <ProtectedRoute allowedRoles={['STUDENT', 'INSTRUCTOR', 'ADMIN']}>
+                <AttendancePage />
               </ProtectedRoute>
             }
           />

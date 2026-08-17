@@ -4,7 +4,7 @@ import bcrypt from 'bcryptjs';
 const prisma = new PrismaClient({
   datasources: {
     db: {
-      url: 'file:./dev.db'
+      url: 'file:./prisma/dev.db'
     }
   }
 });
@@ -21,6 +21,7 @@ async function main() {
   await prisma.booking.deleteMany({});
   await prisma.availabilitySlot.deleteMany({});
   await prisma.studentProgress.deleteMany({});
+  await prisma.refreshToken.deleteMany({});
   await prisma.user.deleteMany({});
 
   console.log('🗑️  Cleared existing data');
@@ -167,7 +168,7 @@ async function main() {
 
   // Seed Availability Slots
   const today = new Date();
-  const vehicles = [
+  const vehicleNames = [
     'Toyota Hilux 2.4D (Manual - Code 10)',
     'VW Polo 1.4 (Manual - Code 8)',
     'Nissan NV200 (Manual - Code 8)',
@@ -189,7 +190,7 @@ async function main() {
             instructorId: instructorUsers[i % instructorUsers.length].id,
             date: dateStr,
             timeWindow: timeSlots[j],
-            vehicle: vehicles[i],
+            vehicle: vehicleNames[i],
             vehicleId: `vehicle-${i + 1}`,
             isBooked: isBooked,
             studentId: isBooked ? studentUsers[Math.floor(Math.random() * studentUsers.length)].id : null,

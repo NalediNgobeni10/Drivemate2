@@ -6,6 +6,8 @@ import { fileURLToPath } from 'url';
 import { PrismaClient } from '@prisma/client';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
+import passport from './config/passport.js';
+import { ExtractJwt } from 'passport-jwt';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -31,6 +33,7 @@ const prisma = new PrismaClient({
 // Middleware
 app.use(cors());
 app.use(express.json());
+app.use(passport.initialize());
 
 // Authentication middleware
 const authenticateToken = (req, res, next) => {
@@ -107,7 +110,7 @@ app.post('/api/auth/register', async (req, res) => {
   }
 });
 
-// Login
+// Login with standard JWT authentication
 app.post('/api/auth/login', async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -148,6 +151,68 @@ app.get('/api/auth/me', authenticateToken, async (req, res) => {
     res.json(user);
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch user' });
+  }
+});
+
+// Refresh token endpoint
+app.post('/api/auth/refresh', async (req, res) => {
+  try {
+    const { refreshToken } = req.body;
+
+    if (!refreshToken) {
+      return res.status(401).json({ error: 'Refresh token required' });
+    }
+
+    // Verify refresh token
+    const decoded = jwt.verify(refreshToken, JWT_SECRET + '-refresh');
+
+    // Check if refresh token exists in database
+    const storedToken = await prisma.refreshToken.findUnique({
+      where: { token: refreshToken },
+      include: { user: true },
+    });
+
+    if (!storedToken || storedToken.userId !== decoded.id) {
+      return res.status(401).json({ error: 'Invalid refresh token' });
+    }
+
+    // Check if refresh token is expired
+    if (storedToken.expiresAt < new Date()) {
+      await prisma.refreshToken.delete({ where: { token: refreshToken } });
+      return res.status(401).json({ error: 'Refresh token expired' });
+    }
+
+    // Generate new access token
+    const accessToken = jwt.sign(
+      { id: storedToken.user.id, email: storedToken.user.email, role: storedToken.user.role },
+      JWT_SECRET,
+      { expiresIn: '15m' }
+    );
+
+    res.json({ accessToken });
+  } catch (error) {
+    console.error('Refresh token error:', error);
+    res.status(401).json({ error: 'Invalid refresh token' });
+  }
+});
+
+// Logout endpoint
+app.post('/api/auth/logout', async (req, res) => {
+  try {
+    const { refreshToken } = req.body;
+
+    if (refreshToken) {
+      await prisma.refreshToken.delete({
+        where: { token: refreshToken },
+      }).catch(() => {
+        // Token doesn't exist, but that's okay
+      });
+    }
+
+    res.json({ message: 'Logged out successfully' });
+  } catch (error) {
+    console.error('Logout error:', error);
+    res.status(500).json({ error: 'Logout failed' });
   }
 });
 
@@ -1042,6 +1107,199 @@ app.get('/api/quiz/attempts', authenticateToken, async (req, res) => {
     res.json(attempts);
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch attempts' });
+  }
+});
+
+// ============ VEHICLE MANAGEMENT ============
+
+// Get all vehicles (Admin)
+app.get('/api/admin/vehicles', authenticateToken, authorize(['ADMIN']), async (req, res) => {
+  try {
+    const vehicles = await prisma.vehicle.findMany({
+      orderBy: { createdAt: 'desc' },
+    });
+    res.json(vehicles);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch vehicles' });
+  }
+});
+
+// Create vehicle (Admin)
+app.post('/api/admin/vehicles', authenticateToken, authorize(['ADMIN']), async (req, res) => {
+  try {
+    const vehicle = await prisma.vehicle.create({
+      data: req.body,
+    });
+    res.json(vehicle);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to create vehicle' });
+  }
+});
+
+// Update vehicle (Admin)
+app.patch('/api/admin/vehicles/:id', authenticateToken, authorize(['ADMIN']), async (req, res) => {
+  try {
+    const vehicle = await prisma.vehicle.update({
+      where: { id: req.params.id },
+      data: req.body,
+    });
+    res.json(vehicle);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to update vehicle' });
+  }
+});
+
+// Delete vehicle (Admin)
+app.delete('/api/admin/vehicles/:id', authenticateToken, authorize(['ADMIN']), async (req, res) => {
+  try {
+    await prisma.vehicle.delete({
+      where: { id: req.params.id },
+    });
+    res.json({ message: 'Vehicle deleted' });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to delete vehicle' });
+  }
+});
+
+// ============ DOCUMENT MANAGEMENT ============
+
+// Get user's documents
+app.get('/api/documents', authenticateToken, async (req, res) => {
+  try {
+    const documents = await prisma.document.findMany({
+      where: { userId: req.user.id },
+      orderBy: { createdAt: 'desc' },
+    });
+    res.json(documents);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch documents' });
+  }
+});
+
+// Upload document
+app.post('/api/documents', authenticateToken, async (req, res) => {
+  try {
+    const document = await prisma.document.create({
+      data: {
+        ...req.body,
+        userId: req.user.id,
+      },
+    });
+    res.json(document);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to upload document' });
+  }
+});
+
+// Get all documents (Admin)
+app.get('/api/admin/documents', authenticateToken, authorize(['ADMIN']), async (req, res) => {
+  try {
+    const documents = await prisma.document.findMany({
+      include: { user: true },
+      orderBy: { createdAt: 'desc' },
+    });
+    res.json(documents);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch documents' });
+  }
+});
+
+// Approve/Reject document (Admin)
+app.patch('/api/admin/documents/:id', authenticateToken, authorize(['ADMIN']), async (req, res) => {
+  try {
+    const { status, rejectionReason } = req.body;
+    const document = await prisma.document.update({
+      where: { id: req.params.id },
+      data: {
+        status,
+        rejectionReason,
+        reviewedBy: req.user.id,
+        reviewedAt: new Date(),
+      },
+    });
+    res.json(document);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to update document' });
+  }
+});
+
+// ============ ATTENDANCE MANAGEMENT ============
+
+// Get instructor's attendance records
+app.get('/api/attendance/instructor', authenticateToken, authorize(['INSTRUCTOR', 'ADMIN']), async (req, res) => {
+  try {
+    const attendance = await prisma.attendance.findMany({
+      where: { instructorId: req.user.id },
+      include: {
+        student: true,
+        booking: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+    res.json(attendance);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch attendance' });
+  }
+});
+
+// Get student's attendance records
+app.get('/api/attendance/student', authenticateToken, async (req, res) => {
+  try {
+    const attendance = await prisma.attendance.findMany({
+      where: { studentId: req.user.id },
+      include: {
+        instructor: true,
+        booking: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+    res.json(attendance);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch attendance' });
+  }
+});
+
+// Mark attendance (Instructor)
+app.post('/api/attendance', authenticateToken, authorize(['INSTRUCTOR', 'ADMIN']), async (req, res) => {
+  try {
+    const { bookingId, status, notes } = req.body;
+    
+    // Get booking details
+    const booking = await prisma.booking.findUnique({
+      where: { id: bookingId },
+      include: { slot: true },
+    });
+
+    if (!booking) {
+      return res.status(404).json({ error: 'Booking not found' });
+    }
+
+    const attendance = await prisma.attendance.create({
+      data: {
+        bookingId,
+        studentId: booking.studentId,
+        instructorId: req.user.id,
+        status,
+        notes,
+        checkInTime: status === 'PRESENT' ? new Date() : null,
+      },
+    });
+    res.json(attendance);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to mark attendance' });
+  }
+});
+
+// Update attendance (Instructor)
+app.patch('/api/attendance/:id', authenticateToken, authorize(['INSTRUCTOR', 'ADMIN']), async (req, res) => {
+  try {
+    const attendance = await prisma.attendance.update({
+      where: { id: req.params.id },
+      data: req.body,
+    });
+    res.json(attendance);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to update attendance' });
   }
 });
 

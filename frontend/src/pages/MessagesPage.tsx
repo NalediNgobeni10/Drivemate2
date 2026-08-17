@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { MessageCircle, Send, AlertCircle, Loader, ArrowLeft } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { messagesAPI } from '../lib/api';
