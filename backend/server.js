@@ -1,3 +1,4 @@
+//SESETHU NCITI 231118384//
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
@@ -20,12 +21,13 @@ const frontendBuildPath = path.join(__dirname, '../frontend/build');
 const app = express();
 const PORT = process.env.PORT || 5000;
 const JWT_SECRET = process.env.JWT_SECRET || 'drivemate-secret-key-change-in-production';
+const DB_PATH = path.resolve(__dirname, 'prisma', 'dev.db');
 
 // Initialize Prisma after environment variables are loaded
 const prisma = new PrismaClient({
   datasources: {
     db: {
-      url: process.env.DATABASE_URL || `file:${path.join(__dirname, 'prisma', 'dev.db')}`
+      url: `file:${DB_PATH}`
     }
   }
 });
@@ -61,6 +63,134 @@ const authorize = (roles) => {
     }
     next();
   };
+};
+
+const formatDateKey = (date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const getBestSchedulingSuggestions = async (studentId) => {
+  const today = new Date();
+  const windowStart = formatDateKey(today);
+  const studentProgress = await prisma.studentProgress.findUnique({
+    where: { studentId },
+    select: { progressPct: true, completedLessons: true, totalLessons: true },
+  });
+
+  const availableSlots = await prisma.availabilitySlot.findMany({
+    where: {
+      isBooked: false,
+      date: { gte: windowStart },
+    },
+    include: { instructor: { select: { name: true } } },
+    orderBy: [{ date: 'asc' }, { timeWindow: 'asc' }],
+    take: 15,
+  });
+
+  const scoreSlot = (slot) => {
+    const scoreDate = new Date(`${slot.date}T${slot.timeWindow}:00`).getTime();
+    const now = Date.now();
+    const daysAway = Math.max(0, (scoreDate - now) / (1000 * 60 * 60 * 24));
+    let score = 100 - Math.min(daysAway * 8, 60);
+
+    if (slot.timeWindow.startsWith('08') || slot.timeWindow.startsWith('09')) score += 8;
+    if (slot.timeWindow.startsWith('14') || slot.timeWindow.startsWith('15')) score += 5;
+    if (studentProgress?.progressPct && studentProgress.progressPct < 50) score += 10;
+
+    return score;
+  };
+
+  const suggestions = availableSlots
+    .map((slot) => {
+      const slotDate = new Date(`${slot.date}T${slot.timeWindow}:00`);
+      const daysAway = Math.max(0, Math.round((slotDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24)));
+      const score = scoreSlot(slot);
+      const reason =
+        studentProgress && studentProgress.progressPct < 50
+          ? 'High-priority lesson to build confidence faster'
+          : daysAway <= 2
+            ? 'Ideal slot for maintaining momentum'
+            : 'Strong next available lesson slot';
+
+      return {
+        id: slot.id,
+        date: slot.date,
+        timeWindow: slot.timeWindow,
+        vehicle: slot.vehicle,
+        instructor: slot.instructor?.name || 'Instructor',
+        reason,
+        score: Math.max(70, Math.min(99, Math.round(score))),
+      };
+    })
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 3);
+
+  return suggestions;
+};
+
+const generateLessonReminderNotifications = async (studentId) => {
+  const today = new Date();
+  const maxWindow = new Date(today.getTime() + 1000 * 60 * 60 * 24 * 7);
+
+  const upcomingBookings = await prisma.booking.findMany({
+    where: {
+      studentId,
+      status: 'CONFIRMED',
+      slot: {
+        date: {
+          gte: formatDateKey(today),
+          lte: formatDateKey(maxWindow),
+        },
+      },
+    },
+    include: {
+      slot: {
+        include: {
+          instructor: { select: { name: true } },
+        },
+      },
+    },
+    orderBy: { slot: { date: 'asc' } },
+  });
+
+  const reminders = [];
+  for (const booking of upcomingBookings) {
+    const bookingDateTime = new Date(`${booking.slot.date}T${booking.slot.timeWindow}:00`);
+    const diffMs = bookingDateTime.getTime() - Date.now();
+
+    if (diffMs < 0 || diffMs > 1000 * 60 * 60 * 24 * 7) continue;
+
+    const reminderMessage = diffMs <= 1000 * 60 * 60 * 24
+      ? `Your lesson is tomorrow at ${booking.slot.timeWindow} with ${booking.slot.instructor?.name || 'your instructor'}. Please arrive 10 minutes early.`
+      : `Your next lesson is on ${booking.slot.date} at ${booking.slot.timeWindow} with ${booking.slot.instructor?.name || 'your instructor'}.`;
+
+    let reminder = await prisma.notification.findFirst({
+      where: {
+        userId: studentId,
+        type: 'lesson_reminder',
+        relatedId: booking.id,
+      },
+    });
+
+    if (!reminder) {
+      reminder = await prisma.notification.create({
+        data: {
+          userId: studentId,
+          type: 'lesson_reminder',
+          title: 'Lesson Reminder',
+          message: reminderMessage,
+          relatedId: booking.id,
+        },
+      });
+    }
+
+    reminders.push(reminder);
+  }
+
+  return reminders;
 };
 
 // ============ AUTH ROUTES ============
@@ -151,6 +281,27 @@ app.get('/api/auth/me', authenticateToken, async (req, res) => {
     res.json(user);
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch user' });
+  }
+});
+
+// Update current user profile
+app.patch('/api/auth/me', authenticateToken, async (req, res) => {
+  try {
+    const { name, phone, bio } = req.body;
+    
+    const user = await prisma.user.update({
+      where: { id: req.user.id },
+      data: {
+        ...(name !== undefined && { name }),
+        ...(phone !== undefined && { phone }),
+        ...(bio !== undefined && { bio }),
+      },
+    });
+    
+    res.json(user);
+  } catch (error) {
+    console.error('Profile update error:', error);
+    res.status(500).json({ error: 'Failed to update profile' });
   }
 });
 
@@ -438,7 +589,7 @@ app.post('/api/bookings/:slotId', authenticateToken, authorize(['STUDENT', 'ADMI
       });
     });
 
-    // Create notification
+    // Create confirmation + reminder-ready notification
     await prisma.notification.create({
       data: {
         userId: req.user.id,
@@ -449,10 +600,43 @@ app.post('/api/bookings/:slotId', authenticateToken, authorize(['STUDENT', 'ADMI
       },
     });
 
+    await generateLessonReminderNotifications(req.user.id);
+
     res.json(booking);
   } catch (error) {
     console.error('Booking error:', error);
     res.status(500).json({ error: 'Failed to book slot' });
+  }
+});
+
+// Smart lesson recommendations for students
+app.get('/api/scheduling/suggestions', authenticateToken, authorize(['STUDENT']), async (req, res) => {
+  try {
+    const suggestions = await getBestSchedulingSuggestions(req.user.id);
+    const reminderCount = (await generateLessonReminderNotifications(req.user.id)).length;
+
+    res.json({
+      suggestions,
+      reminderCount,
+      generatedAt: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error('Scheduling suggestion error:', error);
+    res.status(500).json({ error: 'Failed to generate lesson suggestions' });
+  }
+});
+
+// Generate and fetch reminder notifications for students
+app.get('/api/scheduling/reminders', authenticateToken, authorize(['STUDENT']), async (req, res) => {
+  try {
+    const reminders = await generateLessonReminderNotifications(req.user.id);
+    res.json({
+      reminders,
+      count: reminders.length,
+    });
+  } catch (error) {
+    console.error('Reminder generation error:', error);
+    res.status(500).json({ error: 'Failed to generate lesson reminders' });
   }
 });
 
@@ -739,6 +923,10 @@ app.get('/api/admin/payments', authenticateToken, authorize(['ADMIN']), async (r
 // Get user notifications
 app.get('/api/notifications', authenticateToken, async (req, res) => {
   try {
+    if (req.user.role === 'STUDENT') {
+      await generateLessonReminderNotifications(req.user.id);
+    }
+
     const notifications = await prisma.notification.findMany({
       where: { userId: req.user.id },
       orderBy: { createdAt: 'desc' },
