@@ -7,7 +7,7 @@
     "setup": "npm install && cd backend && npm install && cd ../frontend && npm install && cd ../backend && npx prisma generate",
     "build": "cd frontend && npm run build",
     "start": "cd backend && npm start",
-    "dev": "cd backend && npm run dev",
+    "dev": "concurrently \"npm --prefix backend run dev\" \"npm --prefix frontend run start\"",
     "db:push": "cd backend && npx prisma db push",
     "db:seed": "cd backend && node prisma/seed.js",
     "db:setup": "npm run db:push && npm run db:seed",

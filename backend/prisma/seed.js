@@ -1,10 +1,12 @@
+import path from 'path';
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 
+const dbPath = path.resolve(process.cwd(), 'prisma', 'dev.db');
 const prisma = new PrismaClient({
   datasources: {
     db: {
-      url: 'file:./prisma/dev.db'
+      url: `file:${dbPath}`
     }
   }
 });
@@ -13,6 +15,7 @@ async function main() {
   console.log('🌱 Starting database seed...');
 
   // Clear existing data
+  await prisma.attendance.deleteMany({});
   await prisma.notification.deleteMany({});
   await prisma.quizAttempt.deleteMany({});
   await prisma.feedback.deleteMany({});
@@ -20,6 +23,8 @@ async function main() {
   await prisma.payment.deleteMany({});
   await prisma.booking.deleteMany({});
   await prisma.availabilitySlot.deleteMany({});
+  await prisma.document.deleteMany({});
+  await prisma.vehicle.deleteMany({});
   await prisma.studentProgress.deleteMany({});
   await prisma.refreshToken.deleteMany({});
   await prisma.user.deleteMany({});
@@ -166,14 +171,50 @@ async function main() {
 
   console.log('✅ Student progress created');
 
+  // Seed Vehicles
+  const vehicleRecords = await Promise.all([
+    prisma.vehicle.create({
+      data: {
+        make: 'Toyota',
+        model: 'Hilux 2.4D',
+        year: 2021,
+        licensePlate: 'CA 123 456',
+        vehicleType: 'manual',
+        code: 'CODE_10',
+        status: 'AVAILABLE',
+        currentMileage: 48200,
+      },
+    }),
+    prisma.vehicle.create({
+      data: {
+        make: 'Volkswagen',
+        model: 'Polo 1.4',
+        year: 2019,
+        licensePlate: 'CA 234 567',
+        vehicleType: 'manual',
+        code: 'CODE_8',
+        status: 'AVAILABLE',
+        currentMileage: 61120,
+      },
+    }),
+    prisma.vehicle.create({
+      data: {
+        make: 'Nissan',
+        model: 'NV200',
+        year: 2020,
+        licensePlate: 'CA 345 678',
+        vehicleType: 'manual',
+        code: 'CODE_8',
+        status: 'AVAILABLE',
+        currentMileage: 53410,
+      },
+    }),
+  ]);
+
+  const vehicleNames = vehicleRecords.map((vehicle) => `${vehicle.make} ${vehicle.model} (${vehicle.vehicleType} - ${vehicle.code})`);
+
   // Seed Availability Slots
   const today = new Date();
-  const vehicleNames = [
-    'Toyota Hilux 2.4D (Manual - Code 10)',
-    'VW Polo 1.4 (Manual - Code 8)',
-    'Nissan NV200 (Manual - Code 8)',
-  ];
-
   const timeSlots = ['08:00', '09:00', '10:00', '11:00', '14:00', '15:00', '16:00'];
 
   // Create slots for next 7 days
@@ -182,7 +223,7 @@ async function main() {
     slotDate.setDate(slotDate.getDate() + dayOffset);
     const dateStr = slotDate.toISOString().split('T')[0];
 
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < vehicleRecords.length; i++) {
       for (let j = 0; j < timeSlots.length; j++) {
         const isBooked = Math.random() > 0.6;
         await prisma.availabilitySlot.create({
@@ -191,7 +232,7 @@ async function main() {
             date: dateStr,
             timeWindow: timeSlots[j],
             vehicle: vehicleNames[i],
-            vehicleId: `vehicle-${i + 1}`,
+            vehicleId: vehicleRecords[i].id,
             isBooked: isBooked,
             studentId: isBooked ? studentUsers[Math.floor(Math.random() * studentUsers.length)].id : null,
           },

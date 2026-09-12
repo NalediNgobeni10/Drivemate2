@@ -4,7 +4,7 @@ generator client {
 
 datasource db {
   provider = "sqlite"
-  url      = env("DATABASE_URL")
+  url      = "file:./dev.db"
 }
 
 model User {
@@ -79,6 +79,7 @@ model AvailabilitySlot {
 
   // Relations
   booking           Booking?
+  vehicleRelation   Vehicle?  @relation("VehicleSlots", fields: [vehicleId], references: [id], onDelete: SetNull)
 
   @@unique([instructorId, date, timeWindow, vehicleId])
   @@index([instructorId])
@@ -223,7 +224,7 @@ model Vehicle {
   updatedAt         DateTime  @updatedAt
 
   // Relations
-  slots             AvailabilitySlot[]
+  slots             AvailabilitySlot[] @relation("VehicleSlots")
 
   @@index([licensePlate])
   @@index([status])
@@ -257,9 +258,9 @@ model Attendance {
   bookingId         String    @unique
   booking           Booking   @relation(fields: [bookingId], references: [id], onDelete: Cascade)
   studentId         String
-  student           User      @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  student           User      @relation("StudentAttendance", fields: [studentId], references: [id], onDelete: Cascade)
   instructorId      String
-  instructor        User      @relation(fields: [instructorId], references: [id], onDelete: Cascade)
+  instructor        User      @relation("InstructorAttendance", fields: [instructorId], references: [id], onDelete: Cascade)
   status            String    @default("PRESENT") // "PRESENT", "ABSENT", "CANCELLED", "NO_SHOW"
   checkInTime       DateTime?
   checkOutTime      DateTime?
