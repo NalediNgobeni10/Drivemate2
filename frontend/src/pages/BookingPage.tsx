@@ -1,9 +1,13 @@
+
+
 import React, { useEffect, useState } from 'react';
 import { Calendar, Clock, Car, AlertCircle, Loader, Check, Ticket, ArrowLeft } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { slotsAPI, bookingsAPI, progressAPI } from '../lib/api';
 import type { AvailabilitySlot } from '../types';
+/* Name: Naledi Ngobeni
+*  Student Number: 230742912 */
 
 const BookingPage: React.FC = () => {
   const { user } = useAuth();

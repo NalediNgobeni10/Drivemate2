@@ -1,4 +1,4 @@
-//SESETHU NCITI 231118384//
+//SESETHU NCITI 231118384 and Naledi Ngobeni(230742912)//
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
